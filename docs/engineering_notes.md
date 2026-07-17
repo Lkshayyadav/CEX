@@ -998,3 +998,43 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   **`forwardRef` + `useImperativeHandle`**: Provides a typed escape hatch (`updateCandle`) for the parent to push real-time kline data into the chart without prop drilling.
 *   **Per-row cancellation Set**: Tracking cancelling order IDs in a `Set<string>` allows concurrent cancellations on different rows without locking the whole table.
 *   **Optimistic removal**: The cancelled order is removed from state immediately on API success, giving instant UI feedback before any background refetch.
+
+---
+
+## Phase 8.0: Dockerization & Local Orchestration
+
+### Tasks Completed
+*   Created multi-stage `Dockerfile` for each service (backend, engine, frontend) using `node:20-alpine` base images.
+*   Backend/Engine Dockerfiles use three stages: `deps` (install all), `builder` (compile TS + Prisma generate), `runner` (prod deps + compiled output only).
+*   Frontend Dockerfile bakes `VITE_API_URL`/`VITE_WS_URL` as Docker `ARG`s into the static Vite bundle, then serves via `nginx:1.27-alpine`.
+*   Created `apps/frontend/nginx.conf` with SPA `try_files` fallback, gzip compression, and 1-year immutable caching for hashed assets.
+*   Root `docker-compose.yml` orchestrates: `postgres:16-alpine`, `redis:7-alpine`, `engine`, `backend`, `frontend`.
+*   `postgres` and `redis` both have `healthcheck` blocks; engine/backend use `depends_on: condition: service_healthy` for correct startup ordering.
+*   Named volumes (`postgres_data`, `redis_data`) persist data across restarts; `docker:clean` destroys them for a clean slate.
+*   Root `.dockerignore` excludes `node_modules`, `dist`, `.env`, `.git`, and docs from build context.
+*   `.env.example` documents all required variables with safe defaults.
+*   Added `docker:up`, `docker:down`, `docker:logs`, `docker:clean`, `docker:ps` helper scripts to root `package.json`.
+
+### Files Created/Updated
+*   `apps/backend/Dockerfile`
+*   `apps/engine/Dockerfile`
+*   `apps/frontend/Dockerfile`
+*   `apps/frontend/nginx.conf`
+*   `docker-compose.yml`
+*   `.dockerignore`
+*   `.env.example`
+*   `package.json`
+*   `docs/engineering_notes.md`
+*   `README.md`
+
+### Commands Used
+*   `pnpm docker:up` → build images and start stack
+*   `pnpm docker:logs` → tail all service logs
+*   `pnpm docker:clean` → destroy everything including volumes
+
+### Important Concepts
+*   **Multi-stage builds**: Final runner image only contains compiled JS + prod deps; TS compiler and dev tools are discarded in earlier stages.
+*   **Internal DNS vs external URLs**: Containers communicate via Docker bridge DNS (`redis://redis:6379`). Browser `VITE_*` URLs use `localhost` (host-forwarded ports) since the browser runs outside Docker.
+*   **Health-checked ordering**: `condition: service_healthy` prevents app containers starting before their dependencies are ready.
+*   **Nginx SPA routing**: `try_files $uri $uri/ /index.html` ensures React Router deep links don't 404.
+*   **Named volumes**: Data survives `docker-compose down`; only destroyed with `docker-compose down -v`.

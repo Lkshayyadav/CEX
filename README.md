@@ -157,7 +157,49 @@ pnpm build
 *   [x] Wire Order Entry panel to POST /orders API with toast feedback and loading states.
 *   [x] Integrate lightweight-charts candlestick chart and Open Orders management panel.
 
+### Phase 5: Infrastructure & DevOps
+*   [x] Dockerize all services with multi-stage builds (backend, engine, frontend).
+*   [x] Docker Compose orchestration with postgres, redis, engine, backend, frontend.
+*   [x] Health checks, named volumes, and internal Docker networking.
+*   [ ] CI/CD pipeline (GitHub Actions).
+*   [ ] Cloud deployment (Railway / Render / AWS).
+
 ---
+
+## 🐳 Running with Docker
+
+### Prerequisites
+- Docker ≥ 24 and Docker Compose v2
+
+### Quick Start
+```bash
+# 1. Copy environment file and adjust secrets
+cp .env.example .env
+
+# 2. Build images and start all services (detached)
+pnpm docker:up
+
+# 3. Run Prisma migrations inside the backend container
+docker exec cex_backend npx prisma migrate deploy
+
+# 4. (Optional) Seed the database
+docker exec cex_backend node dist/scripts/seed.js
+
+# 5. Open the app
+#    Frontend → http://localhost
+#    Backend API → http://localhost:3000/api/v1
+```
+
+### Useful Commands
+| Command | Description |
+|---|---|
+| `pnpm docker:up` | Build & start all containers (detached) |
+| `pnpm docker:down` | Stop containers (data preserved) |
+| `pnpm docker:logs` | Tail logs for all services |
+| `pnpm docker:ps` | Show running containers + ports |
+| `pnpm docker:clean` | Destroy containers, volumes & local images |
+
+
 
 ## Future Features
 
