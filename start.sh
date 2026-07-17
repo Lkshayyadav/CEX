@@ -28,20 +28,6 @@ else
   fi
 fi
 
-# Ensure Postgres and Redis are running
-echo "Checking infrastructure services..."
-if ! command -v redis-cli >/dev/null 2>&1 || ! redis-cli ping >/dev/null 2>&1; then
-  echo "WARNING: Redis does not seem to be running on localhost:6379."
-  echo "Please ensure Redis is started before running this script."
-fi
-
-# Check Postgres status
-if command -v pg_isready >/dev/null 2>&1; then
-  if ! pg_isready >/dev/null 2>&1; then
-    echo "WARNING: PostgreSQL is not responding on standard ports."
-  fi
-fi
-
 # 2. Boot processes in the background
 echo "Starting Backend service..."
 npx pnpm --filter @cex/backend dev > /dev/null 2>&1 &

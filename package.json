@@ -8,12 +8,7 @@
     "dev": "pnpm -r run dev",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
-    "clean": "pnpm -r exec rm -rf node_modules dist .turbo",
-    "docker:up": "docker-compose up -d --build",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "docker:clean": "docker-compose down -v --rmi local",
-    "docker:ps": "docker-compose ps"
+    "clean": "pnpm -r exec rm -rf node_modules dist .turbo"
   },
   "engines": {
     "node": ">=18.0.0",

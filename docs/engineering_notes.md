@@ -1058,3 +1058,15 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   `apps/frontend/src/components/OpenOrders.tsx`
 *   `docs/engineering_notes.md`
 
+---
+
+## Cloud-Native Database Migration & Docker Deprecation
+
+### Tasks Completed
+*   Migrated database infrastructure from local containerized Postgres to cloud-hosted **Neon (Serverless Postgres)** using pooled SSL connections.
+*   Migrated pub/sub and key-value store from local containerized Redis to cloud-hosted **Upstash Redis**.
+*   Deprecated Docker workflow completely by deleting `docker-compose.yml`, Dockerfiles, `.dockerignore`, and custom Docker package.json script properties to adopt standard, lower-overhead native Node.js process runtime execution.
+*   Updated `start.sh` to exclude local Postgres/Redis health pings, since the system now points directly to highly-available cloud hosting.
+*   Pushed active schemas to Neon and seeded assets/markets successfully.
+
+
