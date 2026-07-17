@@ -2,11 +2,10 @@
   "name": "@cex/types",
   "version": "1.0.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "build": "echo \"types build script not implemented yet\"",
-    "test": "echo \"types test script not implemented yet\""
+    "build": "echo 'No-op build for types package'",
+    "test": "echo 'No tests for types package'"
   }
 }
-

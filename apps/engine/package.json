@@ -2,13 +2,24 @@
   "name": "@cex/engine",
   "version": "1.0.0",
   "private": true,
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "echo \"engine dev script not implemented yet\"",
-    "build": "echo \"engine build script not implemented yet\"",
-    "test": "echo \"engine test script not implemented yet\""
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@cex/common": "workspace:*",
-    "@cex/types": "workspace:*"
+    "@cex/types": "workspace:*",
+    "@prisma/client": "^5.16.1",
+    "decimal.js": "^10.4.3",
+    "dotenv": "^16.4.5",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "prisma": "^5.16.1",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
   }
 }
