@@ -890,5 +890,42 @@ This is a personal engineering notebook tracking the design decisions, architect
 ### Important Concepts
 *   **JWT Token Interceptor**: Automatically decorates all outbound requests with client credentials.
 *   **Context Session Guarding**: Keeps route visibility synchronized with backend authentication.
-*   **Asset Balance Merging**: Merges real-time API details with standard market symbols to maintain consistent UI layouts.
 
+---
+
+## Phase 7.2: Real-Time Frontend Sync (WebSocket Client & Dashboard Data)
+
+### Tasks Completed
+*   Created a unified `WebSocketProvider` inside `apps/frontend/src/context/WebSocketContext.tsx` handling connection management, ping/pong check loops, and automatic reconnection delays on dropouts.
+*   Designed a callback registration pattern that registers client-side stream listeners dynamically and sends JSON SUBSCRIBE/UNSUBSCRIBE protocol requests matching the backend WebSocket manager.
+*   Hooked up the global provider inside `apps/frontend/src/App.tsx`.
+*   Connected `DashboardPage.tsx` to use the `useWebSocketStream` hook to listen to depth and trade streams (`depth:<symbol>` and `trade:<symbol>`).
+*   Configured auto-cleanup hooks to unsubscribe from channels on component unmount or when changing selected active symbols.
+*   Implemented high-frequency state updates in the Order Book table that compute cumulative sizes and relative depth bar percentages.
+*   Mapped recent trades into an array capped at 20 entries to show real-time transactions.
+
+### What We Built
+*   `apps/frontend/src/context/WebSocketContext.tsx`: Setup socket connections, auto-reconnects, and stream subscription event routing.
+*   `apps/frontend/src/App.tsx`: Registered `WebSocketProvider` wrapper.
+*   `apps/frontend/src/pages/DashboardPage.tsx`: Integrated `useWebSocketStream` hooks, depth sorting logic, and stateful trade feeds.
+
+### Why We Built It
+*   **Single Connection Management**: Utilizing a single global WebSocket instance avoids browser connection throttling, saving resources compared to opening separate connection sockets for each individual component.
+*   **Callback Listener Registry**: Managing subscription callbacks in a Map ensures components receive relevant updates without forcing global React rerenders of unrelated views.
+*   **High-Frequency Updates**: Restricting visual lists to slice thresholds (e.g. 5 order levels and 20 recent trades) keeps the browser responsive and prevents lagging loops.
+
+### Files Created/Updated
+*   `apps/frontend/src/context/WebSocketContext.tsx`
+*   `apps/frontend/src/App.tsx`
+*   `apps/frontend/src/pages/DashboardPage.tsx`
+*   `docs/engineering_notes.md`
+*   `README.md`
+
+### Commands Used
+*   `npx pnpm build`
+
+### Important Concepts
+*   **Auto-Reconnect Intervals**: Re-establishes broken socket feeds automatically if the backend restarts.
+*   **Selective Client-Side Routing**: Direct message streams bypass context state changes and update page lists directly.
+*   **Cumulative Depth Calculation**: Calculates volume summaries dynamically to lay out relative scaling bars.
+*   **Clean Unsubscription Hooks**: Tears down stale feeds upon switching active currency pairings to keep connection parameters lean.

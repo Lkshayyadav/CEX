@@ -153,7 +153,8 @@ pnpm build
 *   [x] Scaffold React + TypeScript + Vite + Tailwind CSS frontend architecture.
 *   [x] Create core pages (Landing, Login, Register, Trade Dashboard grid, Portfolio Wallet).
 *   [x] Connect the React frontend to the Express backend API (Auth & Wallet).
-*   [ ] Integrate live WebSockets and chart libraries.
+*   [x] Implement real-time WebSocket client sync for Order Book depth and Recent Trades.
+*   [ ] Integrate chart libraries.
 
 ---
 

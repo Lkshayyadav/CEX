@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
+import { useWebSocketStream } from '../context/WebSocketContext';
 
 interface OrderBookLevel {
   price: string;
@@ -8,22 +9,6 @@ interface OrderBookLevel {
   depthPct: number;
 }
 
-const mockBids: OrderBookLevel[] = [
-  { price: '98,420.00', qty: '0.450', total: '0.450', depthPct: 15 },
-  { price: '98,415.50', qty: '1.200', total: '1.650', depthPct: 45 },
-  { price: '98,410.00', qty: '0.850', total: '2.500', depthPct: 65 },
-  { price: '98,400.00', qty: '2.140', total: '4.640', depthPct: 90 },
-  { price: '98,390.50', qty: '0.310', total: '4.950', depthPct: 98 },
-];
-
-const mockAsks: OrderBookLevel[] = [
-  { price: '98,425.00', qty: '0.120', total: '0.120', depthPct: 8 },
-  { price: '98,430.00', qty: '0.980', total: '1.100', depthPct: 35 },
-  { price: '98,442.00', qty: '1.500', total: '2.600', depthPct: 70 },
-  { price: '98,450.00', qty: '0.400', total: '3.000', depthPct: 80 },
-  { price: '98,460.50', qty: '2.250', total: '5.250', depthPct: 100 },
-];
-
 interface RecentTrade {
   price: string;
   qty: string;
@@ -31,7 +16,40 @@ interface RecentTrade {
   side: 'BUY' | 'SELL';
 }
 
-const mockRecentTrades: RecentTrade[] = [
+const DEFAULT_MARKET_STATS: Record<
+  string,
+  {
+    lastPrice: string;
+    change: string;
+    high: string;
+    low: string;
+    volume: string;
+    base: string;
+    quote: string;
+  }
+> = {
+  'BTC/USDT': { lastPrice: '98420.50', change: '+4.85%', high: '99150.00', low: '93520.00', volume: '12654.80', base: 'BTC', quote: 'USDT' },
+  'ETH/USDT': { lastPrice: '3845.20', change: '+2.14%', high: '3910.00', low: '3720.00', volume: '84620.15', base: 'ETH', quote: 'USDT' },
+  'SOL/USDT': { lastPrice: '186.75', change: '-1.42%', high: '194.50', low: '181.20', volume: '412530.40', base: 'SOL', quote: 'USDT' },
+};
+
+const INITIAL_MOCK_BIDS = [
+  { price: '98420.00', quantity: '0.450' },
+  { price: '98415.50', quantity: '1.200' },
+  { price: '98410.00', quantity: '0.850' },
+  { price: '98400.00', quantity: '2.140' },
+  { price: '98390.50', quantity: '0.310' },
+];
+
+const INITIAL_MOCK_ASKS = [
+  { price: '98425.00', quantity: '0.120' },
+  { price: '98430.00', quantity: '0.980' },
+  { price: '98442.00', quantity: '1.500' },
+  { price: '98450.00', quantity: '0.400' },
+  { price: '98460.50', quantity: '2.250' },
+];
+
+const INITIAL_MOCK_TRADES: RecentTrade[] = [
   { price: '98,420.50', qty: '0.045', time: '14:24:51', side: 'BUY' },
   { price: '98,420.00', qty: '0.850', time: '14:24:48', side: 'SELL' },
   { price: '98,419.00', qty: '0.120', time: '14:24:42', side: 'SELL' },
@@ -40,23 +58,135 @@ const mockRecentTrades: RecentTrade[] = [
 ];
 
 export const DashboardPage: React.FC = () => {
+  const [marketSymbol, setMarketSymbol] = useState('BTC/USDT');
   const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
   const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
   const [price, setPrice] = useState('98420.00');
   const [quantity, setQuantity] = useState('0.10');
-  const [marketSymbol, setMarketSymbol] = useState('BTC/USDT');
+
+  const stats = DEFAULT_MARKET_STATS[marketSymbol] || DEFAULT_MARKET_STATS['BTC/USDT'];
+  const [lastPrice, setLastPrice] = useState<number>(parseFloat(stats.lastPrice));
+
+  // WebSocket Live States
+  const [rawBids, setRawBids] = useState<Array<{ price: string; quantity: string }>>([]);
+  const [rawAsks, setRawAsks] = useState<Array<{ price: string; quantity: string }>>([]);
+  const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
+
+  // Update base price and reset feeds when switching market tickers
+  useEffect(() => {
+    const currentStats = DEFAULT_MARKET_STATS[marketSymbol];
+    if (currentStats) {
+      const parsedPrice = parseFloat(currentStats.lastPrice);
+      setLastPrice(parsedPrice);
+      setPrice(parsedPrice.toString());
+    }
+    setRawBids([]);
+    setRawAsks([]);
+    setRecentTrades([]);
+  }, [marketSymbol]);
+
+  // Derive subscription keys (e.g. BTC_USDT)
+  const symbolKey = marketSymbol.replace('/', '_');
+  const depthStream = `depth:${symbolKey}`;
+  const tradeStream = `trade:${symbolKey}`;
+
+  // Subscribe to real-time depth events
+  useWebSocketStream(depthStream, (event: any) => {
+    if (event.bids) setRawBids(event.bids);
+    if (event.asks) setRawAsks(event.asks);
+  });
+
+  // Subscribe to real-time trade events
+  useWebSocketStream(tradeStream, (event: any) => {
+    if (event.price) {
+      const parsedPrice = parseFloat(event.price);
+      setLastPrice(parsedPrice);
+
+      setRecentTrades((prev) => {
+        const formattedTime = new Date(event.timestamp || Date.now()).toLocaleTimeString();
+        const newTrade: RecentTrade = {
+          price: parsedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          qty: parseFloat(event.quantity || '0').toFixed(4),
+          time: formattedTime,
+          side: event.side === 'SELL' ? 'SELL' : 'BUY',
+        };
+        return [newTrade, ...prev].slice(0, 20);
+      });
+    }
+  });
 
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     alert(`Order Created: ${orderSide} ${orderType} ${quantity} ${marketSymbol} @ ${price}`);
   };
 
+  // Process and sort bids (BUY orders, highest first)
+  const getDisplayBids = (): OrderBookLevel[] => {
+    const dataSource = rawBids.length > 0 ? rawBids : INITIAL_MOCK_BIDS;
+    const sorted = [...dataSource]
+      .map((b) => ({ price: parseFloat(b.price), qty: parseFloat(b.quantity) }))
+      .sort((a, b) => b.price - a.price)
+      .slice(0, 5);
+
+    let runningTotal = 0;
+    const mapped = sorted.map((item) => {
+      runningTotal += item.qty;
+      return {
+        price: item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        qty: item.qty.toFixed(4),
+        total: runningTotal,
+      };
+    });
+
+    const maxTotal = runningTotal || 1;
+    return mapped.map((item) => ({
+      ...item,
+      total: item.total.toFixed(4),
+      depthPct: Math.min(100, Math.round((item.total / maxTotal) * 100)),
+    }));
+  };
+
+  // Process and sort asks (SELL orders, lowest first)
+  const getDisplayAsks = (): OrderBookLevel[] => {
+    const dataSource = rawAsks.length > 0 ? rawAsks : INITIAL_MOCK_ASKS;
+    const sorted = [...dataSource]
+      .map((a) => ({ price: parseFloat(a.price), qty: parseFloat(a.quantity) }))
+      .sort((a, b) => a.price - b.price)
+      .slice(0, 5);
+
+    let runningTotal = 0;
+    const mapped = sorted.map((item) => {
+      runningTotal += item.qty;
+      return {
+        price: item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        qty: item.qty.toFixed(4),
+        total: runningTotal,
+      };
+    });
+
+    const maxTotal = runningTotal || 1;
+    return mapped.map((item) => ({
+      ...item,
+      total: item.total.toFixed(4),
+      depthPct: Math.min(100, Math.round((item.total / maxTotal) * 100)),
+    }));
+  };
+
+  const displayBids = getDisplayBids();
+  const displayAsks = getDisplayAsks();
+  const displayTrades = recentTrades.length > 0 ? recentTrades : INITIAL_MOCK_TRADES;
+
+  // Calculate spreads
+  const highestBid = displayBids[0] ? parseFloat(displayBids[0].price.replace(/,/g, '')) : lastPrice;
+  const lowestAsk = displayAsks[0] ? parseFloat(displayAsks[0].price.replace(/,/g, '')) : lastPrice;
+  const spread = Math.abs(lowestAsk - highestBid);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
       {/* Top Header stats ticker bar */}
       <div className="lg:col-span-12 bg-dark-card border border-dark-border rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-4">
-          <select 
+          <select
             value={marketSymbol}
             onChange={(e) => setMarketSymbol(e.target.value)}
             className="bg-dark-bg border border-dark-border text-white text-base font-bold rounded-lg px-3 py-1 focus:outline-none focus:border-brand-green"
@@ -65,27 +195,31 @@ export const DashboardPage: React.FC = () => {
             <option value="ETH/USDT">ETH/USDT</option>
             <option value="SOL/USDT">SOL/USDT</option>
           </select>
-          <span className="text-lg font-mono font-bold text-brand-green">$98,420.50</span>
+          <span className="text-lg font-mono font-bold text-brand-green">
+            ${lastPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
         </div>
-        
+
         <div className="flex space-x-6 text-xs font-mono">
           <div>
             <span className="text-dark-text-secondary block">24h Change</span>
-            <span className="text-brand-green font-bold flex items-center">
-              <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> +4.85%
+            <span className={`font-bold flex items-center ${stats.change.startsWith('+') ? 'text-brand-green' : 'text-brand-red'}`}>
+              <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> {stats.change}
             </span>
           </div>
           <div>
             <span className="text-dark-text-secondary block">24h High</span>
-            <span className="text-white font-bold">$99,150.00</span>
+            <span className="text-white font-bold">${stats.high}</span>
           </div>
           <div>
             <span className="text-dark-text-secondary block">24h Low</span>
-            <span className="text-white font-bold">$93,520.00</span>
+            <span className="text-white font-bold">${stats.low}</span>
           </div>
           <div>
-            <span className="text-dark-text-secondary block">24h Volume(BTC)</span>
-            <span className="text-white font-bold">12,654.80 BTC</span>
+            <span className="text-dark-text-secondary block">24h Volume({stats.base})</span>
+            <span className="text-white font-bold">
+              {stats.volume} {stats.base}
+            </span>
           </div>
         </div>
       </div>
@@ -101,7 +235,7 @@ export const DashboardPage: React.FC = () => {
             <span className="px-2 py-0.5 rounded hover:text-white cursor-pointer">1D</span>
           </div>
         </div>
-        
+
         {/* Mock Graphic Chart */}
         <div className="flex-1 flex flex-col justify-end bg-dark-bg/60 border border-dark-border/40 rounded-lg p-4 relative overflow-hidden">
           {/* Background grid lines */}
@@ -111,34 +245,28 @@ export const DashboardPage: React.FC = () => {
             <div className="border-b border-white w-full"></div>
             <div className="border-b border-white w-full"></div>
           </div>
-          
+
           {/* SVG Mock Candlesticks */}
           <svg className="w-full h-64 overflow-visible" preserveAspectRatio="none">
-            {/* Candle 1 */}
             <line x1="10%" y1="120" x2="10%" y2="200" stroke="#f6465d" strokeWidth="2" />
             <rect x="8%" y="140" width="4%" height="40" fill="#f6465d" rx="1" />
 
-            {/* Candle 2 */}
             <line x1="25%" y1="90" x2="25%" y2="170" stroke="#0ecb81" strokeWidth="2" />
             <rect x="23%" y="110" width="4%" height="50" fill="#0ecb81" rx="1" />
 
-            {/* Candle 3 */}
             <line x1="40%" y1="60" x2="40%" y2="130" stroke="#0ecb81" strokeWidth="2" />
             <rect x="38%" y="70" width="4%" height="45" fill="#0ecb81" rx="1" />
 
-            {/* Candle 4 */}
             <line x1="55%" y1="80" x2="55%" y2="150" stroke="#f6465d" strokeWidth="2" />
             <rect x="53%" y="95" width="4%" height="40" fill="#f6465d" rx="1" />
 
-            {/* Candle 5 */}
             <line x1="70%" y1="40" x2="70%" y2="100" stroke="#0ecb81" strokeWidth="2" />
             <rect x="68%" y="50" width="4%" height="45" fill="#0ecb81" rx="1" />
 
-            {/* Candle 6 */}
             <line x1="85%" y1="20" x2="85%" y2="80" stroke="#0ecb81" strokeWidth="2" />
             <rect x="83%" y="30" width="4%" height="40" fill="#0ecb81" rx="1" />
           </svg>
-          
+
           <div className="flex justify-between text-[10px] text-dark-text-secondary mt-4 border-t border-dark-border/30 pt-2 font-mono">
             <span>14:00</span>
             <span>14:05</span>
@@ -153,21 +281,20 @@ export const DashboardPage: React.FC = () => {
       {/* Order Book Panel */}
       <div className="lg:col-span-3 bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col min-h-[480px]">
         <h3 className="font-bold text-white text-sm border-b border-dark-border pb-3 mb-3">Order Book</h3>
-        
+
         {/* Table Headers */}
         <div className="grid grid-cols-3 text-[10px] font-mono text-dark-text-secondary mb-2 px-1">
-          <span>Price(USDT)</span>
-          <span className="text-right">Size(BTC)</span>
-          <span className="text-right">Total(BTC)</span>
+          <span>Price({stats.quote})</span>
+          <span className="text-right">Size({stats.base})</span>
+          <span className="text-right">Total({stats.base})</span>
         </div>
 
         {/* Asks (Sell Orders) - Rendered lowest price bottom */}
         <div className="flex-1 flex flex-col justify-end space-y-1 font-mono text-xs">
-          {[...mockAsks].reverse().map((ask, idx) => (
+          {[...displayAsks].reverse().map((ask, idx) => (
             <div key={idx} className="grid grid-cols-3 relative px-1 py-0.5 hover:bg-neutral-800/40 rounded transition-all">
-              {/* Depth bar indicator */}
-              <div 
-                className="absolute right-0 top-0 bottom-0 bg-brand-red/10 border-r-2 border-brand-red/35 pointer-events-none" 
+              <div
+                className="absolute right-0 top-0 bottom-0 bg-brand-red/10 border-r-2 border-brand-red/35 pointer-events-none"
                 style={{ width: `${ask.depthPct}%` }}
               ></div>
               <span className="text-brand-red relative z-10">{ask.price}</span>
@@ -180,19 +307,19 @@ export const DashboardPage: React.FC = () => {
         {/* Spread / Mid-Market Price Indicator */}
         <div className="my-3 py-2 border-y border-dark-border/40 flex items-center justify-between px-1">
           <span className="text-sm font-bold font-mono text-brand-green flex items-center">
-            $98,420.50
-            <span className="text-[10px] text-dark-text-secondary font-medium ml-1">Spread 4.50</span>
+            ${lastPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
-          <span className="text-xs text-dark-text-secondary">$98,421.25 Estimated</span>
+          <span className="text-[10px] text-dark-text-secondary font-medium">
+            Spread: {spread.toFixed(2)}
+          </span>
         </div>
 
         {/* Bids (Buy Orders) - Rendered highest price top */}
         <div className="flex-1 flex flex-col justify-start space-y-1 font-mono text-xs">
-          {mockBids.map((bid, idx) => (
+          {displayBids.map((bid, idx) => (
             <div key={idx} className="grid grid-cols-3 relative px-1 py-0.5 hover:bg-neutral-800/40 rounded transition-all">
-              {/* Depth bar indicator */}
-              <div 
-                className="absolute right-0 top-0 bottom-0 bg-brand-green/10 border-r-2 border-brand-green/35 pointer-events-none" 
+              <div
+                className="absolute right-0 top-0 bottom-0 bg-brand-green/10 border-r-2 border-brand-green/35 pointer-events-none"
                 style={{ width: `${bid.depthPct}%` }}
               ></div>
               <span className="text-brand-green relative z-10">{bid.price}</span>
@@ -206,7 +333,7 @@ export const DashboardPage: React.FC = () => {
       {/* Trade Execution Panel */}
       <div className="lg:col-span-3 bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col">
         <h3 className="font-bold text-white text-sm border-b border-dark-border pb-3 mb-4">Execute Trade</h3>
-        
+
         {/* BUY / SELL Switch */}
         <div className="grid grid-cols-2 gap-2 mb-4">
           <button
@@ -233,13 +360,13 @@ export const DashboardPage: React.FC = () => {
 
         {/* LIMIT / MARKET Tabs */}
         <div className="flex border-b border-dark-border/40 pb-2 mb-4 text-xs font-semibold text-dark-text-secondary space-x-4">
-          <span 
+          <span
             onClick={() => setOrderType('LIMIT')}
             className={`cursor-pointer pb-1.5 transition-colors ${orderType === 'LIMIT' ? 'border-b-2 border-brand-green text-white' : 'hover:text-white'}`}
           >
             Limit
           </span>
-          <span 
+          <span
             onClick={() => setOrderType('MARKET')}
             className={`cursor-pointer pb-1.5 transition-colors ${orderType === 'MARKET' ? 'border-b-2 border-brand-green text-white' : 'hover:text-white'}`}
           >
@@ -253,7 +380,7 @@ export const DashboardPage: React.FC = () => {
             <div>
               <div className="flex justify-between text-xs text-dark-text-secondary mb-1">
                 <span>Price</span>
-                <span>USDT</span>
+                <span>{stats.quote}</span>
               </div>
               <input
                 type="number"
@@ -268,7 +395,7 @@ export const DashboardPage: React.FC = () => {
           <div>
             <div className="flex justify-between text-xs text-dark-text-secondary mb-1">
               <span>Amount</span>
-              <span>BTC</span>
+              <span>{stats.base}</span>
             </div>
             <input
               type="number"
@@ -291,9 +418,7 @@ export const DashboardPage: React.FC = () => {
             <button
               type="submit"
               className={`w-full py-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
-                orderSide === 'BUY'
-                  ? 'bg-brand-green text-dark-bg hover:opacity-90 font-black'
-                  : 'bg-brand-red text-white hover:opacity-90 font-black'
+                orderSide === 'BUY' ? 'bg-brand-green text-dark-bg hover:opacity-90 font-black' : 'bg-brand-red text-white hover:opacity-90 font-black'
               }`}
             >
               {orderSide} {marketSymbol}
@@ -310,13 +435,13 @@ export const DashboardPage: React.FC = () => {
             <thead>
               <tr className="text-[10px] text-dark-text-secondary uppercase border-b border-dark-border/40 pb-2">
                 <th className="pb-2">Time</th>
-                <th className="pb-2">Price(USDT)</th>
-                <th className="pb-2 text-right">Size(BTC)</th>
+                <th className="pb-2">Price({stats.quote})</th>
+                <th className="pb-2 text-right">Size({stats.base})</th>
                 <th className="pb-2 text-right">Type</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-dark-border/20">
-              {mockRecentTrades.map((trade, idx) => (
+              {displayTrades.map((trade, idx) => (
                 <tr key={idx} className="hover:bg-neutral-800/20 transition-all">
                   <td className="py-2.5 text-dark-text-secondary">{trade.time}</td>
                   <td className={`py-2.5 font-bold ${trade.side === 'BUY' ? 'text-brand-green' : 'text-brand-red'}`}>
