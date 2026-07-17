@@ -751,7 +751,47 @@ This is a personal engineering notebook tracking the design decisions, architect
 2.  *Why is it important to set maxRetriesPerRequest to null in ioredis configuration when using blocking commands?*
     *   **Answer**: By default, ioredis reconnects and throws an error if a request takes too long to respond. Blocking commands like `BRPOP` purposefully hold the request socket open until an item is available. Setting `maxRetriesPerRequest` to `null` tells ioredis not to terminate these intentionally long-lived connections.
 
-### Common Mistakes
-*   Pushed order objects before the database Prisma transaction completed, resulting in matching orders that did not exist in the database yet.
-*   Forgot to parse ISO strings back to `Date` objects in the engine consumer, causing runtime TypeScript type mismatches.
+
+---
+
+## Phase 6.0: Real-Time Communication (WebSockets & Redis Pub/Sub)
+
+### Tasks Completed
+*   Configured a separate subscription client (`redisSub`) in `@cex/common` to avoid blocking conflicts on the main command connection.
+*   Updated the `MatchingEngine` to publish match fills (to `market:<symbol>:trades`) and order book depth updates (to `market:<symbol>:depth`) after matches or cancellations.
+*   Implemented `getDepth` method in `OrderBook` to group and aggregate quantities at correct price levels.
+*   Built a performant, scale-ready `WebSocketManager` service using the `ws` package in `@cex/backend` that handles client sub/unsub actions.
+*   Subscribed to the pattern `market:*:*` in the backend and routed incoming pub/sub events to corresponding WebSocket client streams.
+
+### What We Built
+*   `packages/common/src/redis.ts`: Exposed a second Redis connection `redisSub` specifically configured for pattern subscription.
+*   `apps/engine/src/orderbook.ts`: Added `getDepth` grouping and aggregation logic.
+*   `apps/engine/src/engine.ts`: Enabled publish triggers for trades and depth updates on matching or cancel runs.
+*   `apps/backend/src/services/websocket.service.ts`: Implemented subscription state management and pub/sub routing to client connections.
+*   `apps/backend/src/index.ts`: Bound WebSocket server initialization to the Express HTTP listener and graceful shutdown hooks.
+
+### Why We Built It
+*   **Pub/Sub Broadcast Decoupling**: Redis Pub/Sub is ideal for one-to-many broadcasts like streaming market ticks and depth changes, preventing direct network connections between the matching engine and WebSocket clients.
+*   **Centralized Pattern Subscriptions**: Subscribing once to the Redis pattern `market:*:*` allows the backend to handle all current and future market streams on a single connection instead of orchestrating dynamic Redis subscriptions.
+*   **Sub-Millisecond Broadcast Latency**: Using lightweight WebSockets (`ws`) bypasses HTTP request-response overheads for high-frequency client updates.
+
+### Files Created/Updated
+*   `packages/common/src/redis.ts`
+*   `packages/common/src/index.ts`
+*   `apps/engine/src/orderbook.ts`
+*   `apps/engine/src/engine.ts`
+*   `apps/backend/package.json`
+*   `apps/backend/src/services/websocket.service.ts`
+*   `apps/backend/src/services/index.ts`
+*   `apps/backend/src/index.ts`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm build`
+
+### Important Concepts
+*   **Separate Redis Sub Socket**: Because a Redis client enters "subscriber mode" and rejects normal commands once subscribed, a dedicated socket connection is required for subscription operations.
+*   **Pattern Matching Routing**: Dynamically maps Redis channel strings (e.g. `market:BTC_USDT:trades`) to user-facing stream identifiers (e.g. `trade:BTC_USDT`).
+*   **Stateful Subscription Map**: Maintains a fast lookup mapping between active sockets and the streams they are subscribed to, protecting bandwidth by sending data only to subscribed users.
+
 

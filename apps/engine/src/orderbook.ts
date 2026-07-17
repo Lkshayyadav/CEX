@@ -389,4 +389,44 @@ export class OrderBook {
   public getAsks(): Order[] {
     return [...this.asks];
   }
+
+  /**
+   * Get the aggregated depth of the order book.
+   */
+  public getDepth(limit = 20): { bids: [string, string][]; asks: [string, string][] } {
+    const bidsMap: Map<string, Decimal> = new Map();
+    for (const bid of this.bids) {
+      if (bid.price) {
+        const price = bid.price;
+        const qty = new Decimal(bid.remainingQuantity);
+        bidsMap.set(price, (bidsMap.get(price) || new Decimal(0)).plus(qty));
+      }
+    }
+
+    const asksMap: Map<string, Decimal> = new Map();
+    for (const ask of this.asks) {
+      if (ask.price) {
+        const price = ask.price;
+        const qty = new Decimal(ask.remainingQuantity);
+        asksMap.set(price, (asksMap.get(price) || new Decimal(0)).plus(qty));
+      }
+    }
+
+    // Sort bids descending
+    const sortedBids = Array.from(bidsMap.entries())
+      .sort((a, b) => new Decimal(b[0]).comparedTo(new Decimal(a[0])))
+      .slice(0, limit)
+      .map(([price, qty]) => [price, qty.toString()] as [string, string]);
+
+    // Sort asks ascending
+    const sortedAsks = Array.from(asksMap.entries())
+      .sort((a, b) => new Decimal(a[0]).comparedTo(new Decimal(b[0])))
+      .slice(0, limit)
+      .map(([price, qty]) => [price, qty.toString()] as [string, string]);
+
+    return {
+      bids: sortedBids,
+      asks: sortedAsks,
+    };
+  }
 }

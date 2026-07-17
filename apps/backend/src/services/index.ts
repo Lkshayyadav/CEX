@@ -18,3 +18,4 @@ export * from './auth.service';
 export * from './market.service';
 export * from './balance.service';
 export * from './order.service';
+export * from './websocket.service';

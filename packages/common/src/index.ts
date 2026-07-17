@@ -8,5 +8,5 @@ export function formatDecimal(decimal: Decimal, precision = 8): string {
   return decimal.toFixed(precision);
 }
 
-export { redis, redisService } from './redis';
+export { redis, redisSub, redisService } from './redis';
 

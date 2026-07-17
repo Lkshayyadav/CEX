@@ -1,6 +1,7 @@
 import { Order, Market } from '@cex/types';
 import { OrderBook, MatchResult } from './orderbook';
 import { engineRepository } from './repositories/engine.repository';
+import { redis } from '@cex/common';
 import pino from 'pino';
 
 const logger = pino({ name: 'matching-engine' });
@@ -87,6 +88,8 @@ export class MatchingEngine {
     // Process matching in-memory
     const matchResult = book.addOrder(order);
 
+    const channelSymbol = market.symbol.replace('/', '_');
+
     // If matches occurred, persist fills and settle balances
     if (matchResult.fills.length > 0) {
       logger.info(`Match found! Generating ${matchResult.fills.length} fill(s)`);
@@ -98,7 +101,30 @@ export class MatchingEngine {
         matchResult.fills,
         matchResult.makerUpdates
       );
+
+      // Publish trade fills to Redis Pub/Sub
+      const tradesPayload = {
+        symbol: market.symbol,
+        trades: matchResult.fills.map((f) => ({
+          price: f.price,
+          quantity: f.quantity,
+          tradeId: f.tradeId,
+          makerOrderId: f.makerOrderId,
+          takerOrderId: f.takerOrderId,
+          timestamp: new Date().getTime(),
+        })),
+      };
+      await redis.publish(`market:${channelSymbol}:trades`, JSON.stringify(tradesPayload));
     }
+
+    // Publish depth update to Redis Pub/Sub after any order processing
+    const depthPayload = {
+      symbol: market.symbol,
+      bids: book.getDepth(20).bids,
+      asks: book.getDepth(20).asks,
+      timestamp: new Date().getTime(),
+    };
+    await redis.publish(`market:${channelSymbol}:depth`, JSON.stringify(depthPayload));
 
     return matchResult;
   }
@@ -143,6 +169,16 @@ export class MatchingEngine {
       [], // no fills
       []  // no maker updates
     );
+
+    // Publish depth update to Redis Pub/Sub after cancellation
+    const channelSymbol = marketSymbol.replace('/', '_');
+    const depthPayload = {
+      symbol: marketSymbol,
+      bids: book.getDepth(20).bids,
+      asks: book.getDepth(20).asks,
+      timestamp: new Date().getTime(),
+    };
+    await redis.publish(`market:${channelSymbol}:depth`, JSON.stringify(depthPayload));
 
     return cancelledOrder;
   }

@@ -3,6 +3,7 @@ import app from './app';
 import { config } from './config';
 import { prisma } from './lib';
 import { redisService } from '@cex/common';
+import { webSocketService } from './services';
 
 const logger = pino({
   level: config.env === 'production' ? 'info' : 'debug',
@@ -21,6 +22,8 @@ const startServer = async () => {
         `[server]: CEX Backend is running in [${config.env}] mode at http://localhost:${config.port}`
       );
     });
+
+    webSocketService.init(server);
   } catch (error) {
     logger.error({ err: error }, '[server]: Failed to bootstrap the server');
     process.exit(1);
@@ -31,6 +34,8 @@ const startServer = async () => {
 const gracefulShutdown = async (signal: string) => {
   logger.info(`[server]: Received ${signal}. Shutting down gracefully...`);
   
+  webSocketService.close();
+
   if (server) {
     server.close(() => {
       logger.info('[server]: HTTP server closed.');
