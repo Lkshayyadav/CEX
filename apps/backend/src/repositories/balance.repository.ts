@@ -136,4 +136,37 @@ export const balanceRepository = {
       },
     });
   },
+
+  /**
+   * Lock funds: atomically decrements free balance and increments locked balance.
+   */
+  async lockFunds(userId: string, assetId: string, amount: string, tx?: any) {
+    const client = tx || prisma;
+    return client.balance.update({
+      where: {
+        userId_assetId: {
+          userId,
+          assetId,
+        },
+      },
+      data: {
+        free: {
+          decrement: new Prisma.Decimal(amount),
+        },
+        locked: {
+          increment: new Prisma.Decimal(amount),
+        },
+      },
+      include: {
+        asset: {
+          select: {
+            id: true,
+            symbol: true,
+            name: true,
+            decimals: true,
+          },
+        },
+      },
+    });
+  },
 };

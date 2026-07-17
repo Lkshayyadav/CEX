@@ -16,6 +16,7 @@ We are currently in the **foundation phase**. The directory structure, workspace
 *   [x] JWT Authentication & Protected Profile endpoints (`/auth/register`, `/auth/login`, `/auth/me`)
 *   [x] Asset & Market Management APIs (`/assets`, `/markets`)
 *   [x] User Balance Management System & Simulated Ledger Deposits (`/balances`)
+*   [x] Order Placement & Atomic Balance Locking (`/orders`)
 *   [ ] Shared math, database clients, and helpers (`packages/common`)
 *   [ ] Shared interface and type definitions (`packages/types`)
 *   [ ] High-performance Matching Engine (`apps/engine`)
@@ -136,6 +137,7 @@ pnpm build
 *   [x] Model the DB schema (Users, Assets, Balances, Markets, Orders, Fills, Transactions)
 *   [x] Implement Asset & Market Management APIs
 *   [x] Implement User Balance Ledger and Deposits
+*   [x] Implement Order Placement and Balance Locking
 
 ### Phase 2: High-Performance Matching Engine
 *   [ ] Implement a stateful, memory-based limit order book (LOB).

@@ -600,5 +600,60 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Performing balance math inside Node.js code and overwriting the database value, which causes massive race conditions under load.
 *   Updating a user's balance without validating that the asset symbol exists in the exchange's asset database.
 
+---
+
+## Phase 3.4: Order Placement
+
+### Tasks Completed
+*   Created type definitions for orders and order placement inputs in `types/order.ts`.
+*   Implemented `orderRepository` handling user orders retrieval, single order lookup, and order creation.
+*   Implemented `lockFunds` in `balanceRepository` to atomically deduct free balances and increment locked balances.
+*   Implemented `orderService` implementing order validation, sufficient funds check (including computing BUY cost as price * quantity), balance locking, and order database creation within a single transaction.
+*   Implemented `orderController` with endpoints to retrieve a user's orders, order details, and place new orders.
+*   Created Zod validation schemas for order inputs and order ID lookups inside `validators/order.validator.ts`.
+*   Mounted order routes under `/orders` namespace.
+*   Verified that the TypeScript project builds successfully.
+
+### What We Built
+*   `apps/backend/src/types/order.ts`: Data Transfer Objects for order details and placement inputs.
+*   `apps/backend/src/repositories/order.repository.ts`: Handles Order entity reads and transaction-aware writes.
+*   `apps/backend/src/services/order.service.ts`: Implements matching rules and coordinates the transaction flow.
+*   `apps/backend/src/controllers/order.controller.ts`: Authenticates user requests and routes order tasks.
+*   `apps/backend/src/validators/order.validator.ts`: Validates request bodies (checking for positive prices for LIMIT orders) and UUID paths.
+
+### Why We Built It
+*   **Balance Locking**: In a financial exchange, balances must be locked when limit orders are placed (base asset locked for sells, quote asset locked for buys). This blocks double-spending of identical funds across concurrent orders.
+*   **Transactional atomicity**: Deducting free balance, adding locked balance, and creating an order in the database must succeed or fail as a single unit. Wrapping all operations in a Prisma transaction (`$transaction`) guarantees no orphaned locked balances or unbacked orders.
+
+### Files Created/Updated
+*   `apps/backend/src/types/order.ts`
+*   `apps/backend/src/repositories/order.repository.ts`
+*   `apps/backend/src/repositories/balance.repository.ts`
+*   `apps/backend/src/services/order.service.ts`
+*   `apps/backend/src/controllers/order.controller.ts`
+*   `apps/backend/src/routes/order.routes.ts`
+*   `apps/backend/src/validators/order.validator.ts`
+*   `apps/backend/src/validators/index.ts`
+*   `apps/backend/src/routes/index.ts`
+*   `docs/engineering_notes.md`
+*   `README.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend run build`
+
+### Important Concepts
+*   **Double-Spend Prevention (Balance Locking)**: Moving assets from a "free" wallet to a "locked" state instantly prevents users from placing multiple overlapping buy or sell orders with the same capital.
+*   **Atomic State Integrity**: Decoupling the calculation of required funds from DB mutations. Calculating total buy cost (price * quantity) in-memory using a high-precision decimal library before committing ensures exact ledger changes.
+
+### Interview Questions
+1.  *Why is it critical to lock user funds immediately upon order placement rather than at order match/fill time?*
+    *   **Answer**: If funds are not locked immediately, a user with a $100 balance could place 5 concurrent buy orders of $100 each. If these orders get matched concurrently, the user would spend $500, leading to a negative balance ($400 deficit) and exchange insolvency. Locking funds immediately guarantees that every open order is fully backed by real capital.
+2.  *How does using a high-precision Decimal library prevent floating-point drift during total cost calculations?*
+    *   **Answer**: Floating-point drift is caused by the binary conversion limits of float64 numbers (IEEE 754). Multiplying a small price (e.g. `0.00000001`) by a large quantity (e.g. `12.35`) in standard JavaScript can produce rounding errors. A Decimal library uses base-10 representations, preserving exactly defined decimal places (up to 32 digits, 16 decimals in this DB design) and avoiding fractional leakage.
+
+### Common Mistakes
+*   Locking the wrong asset during orders (e.g. locking base asset during BUY orders or quote asset during SELL orders).
+*   Forgetting to execute the balance check and the order creation inside the same database transaction, opening a window for race conditions.
+
 
 

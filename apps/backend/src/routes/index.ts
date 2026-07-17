@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes';
 import marketRoutes from './market.routes';
 import balanceRoutes from './balance.routes';
+import orderRoutes from './order.routes';
 
 const router = Router();
 
@@ -24,5 +25,8 @@ router.use('/', marketRoutes);
 
 // Mount balance sub-routes
 router.use('/balances', balanceRoutes);
+
+// Mount order sub-routes
+router.use('/orders', orderRoutes);
 
 export default router;
