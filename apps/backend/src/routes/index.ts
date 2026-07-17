@@ -1,13 +1,16 @@
 import { Router } from 'express';
-import { statusCheckController } from '../controllers';
 
 const router = Router();
 
-// Health/Status check endpoint
-router.get('/health', statusCheckController);
-
-// Placeholder for other sub-routes (e.g., auth, users, transactions)
-// router.use('/auth', authRoutes);
-// router.use('/users', userRoutes);
+/**
+ * GET /api/v1/health
+ * Production-ready health check endpoint.
+ */
+router.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'CEX Backend is running',
+  });
+});
 
 export default router;

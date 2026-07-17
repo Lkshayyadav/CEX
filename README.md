@@ -11,7 +11,7 @@ We are currently in the **foundation phase**. The directory structure, workspace
 *   [x] Workspace structures defined (`apps/*`, `packages/*`, `docker/`, `docs/`)
 *   [x] pnpm workspace linked
 *   [x] TypeScript compile environment configured
-*   [x] `apps/backend` Express foundation running on port 3000
+*   [x] `apps/backend` Express bootstrap with Helmet, CORS, Compression, and Pino structured logging
 *   [x] Prisma ORM integration ready for PostgreSQL
 *   [ ] Shared math, database clients, and helpers (`packages/common`)
 *   [ ] Shared interface and type definitions (`packages/types`)

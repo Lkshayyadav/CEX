@@ -326,5 +326,55 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Instantiating multiple `PrismaClient` objects inside individual repository or service files rather than importing a shared singleton instance, which leads to immediate connection limits being reached.
 *   Failing to coerce data types (like port number) when retrieving variables from `process.env`, leading to runtime type errors.
 
+---
+
+## Phase 2.4: Express Application Bootstrap
+
+### Tasks Completed
+*   Configured Express application bootstrap inside `app.ts` registering `express.json()`, `cors`, `helmet`, `compression`, and `pino-http`.
+*   Moved 404 (not found) and global error handling logic into modular dedicated middleware files (`not-found.ts` and `error-handler.ts`).
+*   Configured `/api/v1/health` route.
+*   Updated application entry point (`index.ts`) to use structured logger (Pino), accept typed configurations, and handle graceful shutdown signals (SIGINT/SIGTERM).
+
+### What We Built
+*   `apps/backend/src/middleware/not-found.ts`: Handles requests mapping to non-existent routes.
+*   `apps/backend/src/middleware/error-handler.ts`: Dedicated global error handling and formatting middleware that integrates with Pino logger.
+*   `apps/backend/src/routes/index.ts`: Exposes API endpoints under `/api/v1/health`.
+*   `apps/backend/src/app.ts`: Orchestrates security, compression, request parsing, logging, and routing.
+*   `apps/backend/src/index.ts`: Orchestrates startup connection checks, listening, and graceful termination hooks.
+
+### Why We Built It
+*   **Security & Performance**: Incorporating Helmet protects the server from well-known web vulnerabilities by setting appropriate HTTP headers, and Compression reduces the bandwidth consumption of JSON responses.
+*   **Structured Logging**: Production apps require structured JSON logging (like Pino) instead of unstructured `console.log`. Pino logs are JSON formatted, allowing aggregation services (like Datadog, ELK, or CloudWatch) to easily parse and query logs.
+*   **Graceful Shutdown**: Abruptly terminating a node application leaves active requests hanging, doesn't close database pools (causing stale socket connections), and can corrupt states. Properly handling SIGTERM and SIGINT lets the server finish processing active requests, close database client instances, and exit cleanly.
+
+### Files Created/Updated
+*   `apps/backend/src/middleware/not-found.ts`
+*   `apps/backend/src/middleware/error-handler.ts`
+*   `apps/backend/src/middleware/index.ts`
+*   `apps/backend/src/routes/index.ts`
+*   `apps/backend/src/app.ts`
+*   `apps/backend/src/index.ts`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend add cors helmet compression pino pino-http`
+*   `npx pnpm --filter @cex/backend add -D @types/cors @types/compression`
+*   `npx pnpm --filter @cex/backend run build`
+
+### Important Concepts
+*   **HTTP Middleware Chain**: In Express, middleware acts as a pipeline. Middleware registered at the end (like `errorHandler`) receives unhandled exceptions thrown by prior middlewares or route handlers.
+*   **Signal Handling**: SIGINT is sent on Ctrl+C (interactive terminal interrupt), and SIGTERM is the default termination signal sent by container orchestration environments (like Kubernetes or AWS ECS) before force-killing a container.
+
+### Interview Questions
+1.  *Why is it important to stop accepting HTTP requests before disconnecting from the database during graceful shutdown?*
+    *   **Answer**: If you disconnect from the database first, any HTTP requests currently being processed or arriving in the milliseconds before the server shuts down will fail with database access exceptions. By shutting down the HTTP server first, you ensure no new requests are accepted and existing requests finish, then it is safe to close the database connection.
+2.  *What are the advantages of Pino over loggers like Winston or standard console.log?*
+    *   **Answer**: Pino is highly optimized for performance and is much faster than Winston because it does not block the event loop for string manipulation (it serializes logs quickly to JSON format). Additionally, structured logging enables querying and filtering log messages programmatically.
+
+### Common Mistakes
+*   Registering the global error handler middleware *before* the router or other middlewares, causing errors in route handlers to skip the error handler.
+*   Not cleaning up native child processes or database connections on SIGINT/SIGTERM, causing containers to hang in a zombie state for 10-30 seconds until the system forcefully kills them.
+
 
 
