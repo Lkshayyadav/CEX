@@ -154,6 +154,7 @@ pnpm build
 *   [x] Create core pages (Landing, Login, Register, Trade Dashboard grid, Portfolio Wallet).
 *   [x] Connect the React frontend to the Express backend API (Auth & Wallet).
 *   [x] Implement real-time WebSocket client sync for Order Book depth and Recent Trades.
+*   [x] Wire Order Entry panel to POST /orders API with toast feedback and loading states.
 *   [ ] Integrate chart libraries.
 
 ---

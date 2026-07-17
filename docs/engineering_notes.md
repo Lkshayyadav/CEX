@@ -929,3 +929,37 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   **Selective Client-Side Routing**: Direct message streams bypass context state changes and update page lists directly.
 *   **Cumulative Depth Calculation**: Calculates volume summaries dynamically to lay out relative scaling bars.
 *   **Clean Unsubscription Hooks**: Tears down stale feeds upon switching active currency pairings to keep connection parameters lean.
+
+---
+
+## Phase 7.3: Frontend Order Execution & User Feedback
+
+### Tasks Completed
+*   Installed `react-hot-toast` in `apps/frontend` for lightweight, themeable toast notifications.
+*   Configured the global `<Toaster />` in `App.tsx` with dark CEX-themed style overrides (background, border, typography).
+*   Extracted the Order Entry form out of `DashboardPage.tsx` into a dedicated `src/components/OrderEntry.tsx` component with single responsibility.
+*   Wired `POST /orders` via the existing Axios client, mapping form state to the Zod-validated backend payload schema (`marketSymbol`, `side`, `type`, `price?`, `quantity`).
+*   Applied typed `AxiosError<BackendError>` to safely extract `error.response.data.error.message` from backend error responses without unsafe `any` casts.
+*   Added loading state (`disabled` button + `Loader2` spinner) that blocks re-submission while the request is in flight.
+*   Showed green success toast with order status on placement; red error toast with exact backend message on failures.
+*   Imported `OrderSide`, `OrderType`, and `Order` from the shared `@cex/types` workspace package to avoid type duplication.
+*   Cleared `quantity` field on success; retained `price` for quick order repetition.
+*   Added auth guard: prevents submission if user is not logged in and prompts with a sign-in link.
+
+### Files Created/Updated
+*   `apps/frontend/src/components/OrderEntry.tsx`
+*   `apps/frontend/src/App.tsx`
+*   `apps/frontend/src/pages/DashboardPage.tsx`
+*   `apps/frontend/package.json`
+*   `docs/engineering_notes.md`
+*   `README.md`
+
+### Commands Used
+*   `npx pnpm add react-hot-toast --filter @cex/frontend`
+*   `npx pnpm build`
+
+### Important Concepts
+*   **Typed AxiosError**: Parameterising `AxiosError<BackendError>` lets the compiler verify the `.response.data.error.message` access path.
+*   **Single-responsibility component**: `OrderEntry` owns all form state and API side effects; the dashboard only passes props.
+*   **Global toast singleton**: One `<Toaster />` at App root avoids duplicate notification stacks across routes.
+*   **Auth-gated submission**: Unauthenticated users see an inline link instead of an error mid-flight.

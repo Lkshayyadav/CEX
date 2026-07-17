@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { useWebSocketStream } from '../context/WebSocketContext';
+import { OrderEntry } from '../components/OrderEntry';
 
 interface OrderBookLevel {
   price: string;
@@ -59,10 +60,6 @@ const INITIAL_MOCK_TRADES: RecentTrade[] = [
 
 export const DashboardPage: React.FC = () => {
   const [marketSymbol, setMarketSymbol] = useState('BTC/USDT');
-  const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
-  const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
-  const [price, setPrice] = useState('98420.00');
-  const [quantity, setQuantity] = useState('0.10');
 
   const stats = DEFAULT_MARKET_STATS[marketSymbol] || DEFAULT_MARKET_STATS['BTC/USDT'];
   const [lastPrice, setLastPrice] = useState<number>(parseFloat(stats.lastPrice));
@@ -72,7 +69,7 @@ export const DashboardPage: React.FC = () => {
   const [rawAsks, setRawAsks] = useState<Array<{ price: string; quantity: string }>>([]);
   const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
 
-  // Update base price and reset feeds when switching market tickers
+  // Reset feeds and price when market symbol changes
   useEffect(() => {
     const currentStats = DEFAULT_MARKET_STATS[marketSymbol];
     if (currentStats) {
@@ -114,11 +111,6 @@ export const DashboardPage: React.FC = () => {
       });
     }
   });
-
-  const handleOrderSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert(`Order Created: ${orderSide} ${orderType} ${quantity} ${marketSymbol} @ ${price}`);
-  };
 
   // Process and sort bids (BUY orders, highest first)
   const getDisplayBids = (): OrderBookLevel[] => {
@@ -330,102 +322,8 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Trade Execution Panel */}
-      <div className="lg:col-span-3 bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col">
-        <h3 className="font-bold text-white text-sm border-b border-dark-border pb-3 mb-4">Execute Trade</h3>
-
-        {/* BUY / SELL Switch */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <button
-            onClick={() => setOrderSide('BUY')}
-            className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              orderSide === 'BUY'
-                ? 'bg-brand-green text-dark-bg shadow-lg shadow-brand-green/10'
-                : 'bg-dark-bg text-dark-text-secondary hover:text-white border border-dark-border'
-            }`}
-          >
-            BUY
-          </button>
-          <button
-            onClick={() => setOrderSide('SELL')}
-            className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              orderSide === 'SELL'
-                ? 'bg-brand-red text-white shadow-lg shadow-brand-red/10'
-                : 'bg-dark-bg text-dark-text-secondary hover:text-white border border-dark-border'
-            }`}
-          >
-            SELL
-          </button>
-        </div>
-
-        {/* LIMIT / MARKET Tabs */}
-        <div className="flex border-b border-dark-border/40 pb-2 mb-4 text-xs font-semibold text-dark-text-secondary space-x-4">
-          <span
-            onClick={() => setOrderType('LIMIT')}
-            className={`cursor-pointer pb-1.5 transition-colors ${orderType === 'LIMIT' ? 'border-b-2 border-brand-green text-white' : 'hover:text-white'}`}
-          >
-            Limit
-          </span>
-          <span
-            onClick={() => setOrderType('MARKET')}
-            className={`cursor-pointer pb-1.5 transition-colors ${orderType === 'MARKET' ? 'border-b-2 border-brand-green text-white' : 'hover:text-white'}`}
-          >
-            Market
-          </span>
-        </div>
-
-        {/* Input Form */}
-        <form onSubmit={handleOrderSubmit} className="space-y-4">
-          {orderType === 'LIMIT' && (
-            <div>
-              <div className="flex justify-between text-xs text-dark-text-secondary mb-1">
-                <span>Price</span>
-                <span>{stats.quote}</span>
-              </div>
-              <input
-                type="number"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green font-mono"
-              />
-            </div>
-          )}
-
-          <div>
-            <div className="flex justify-between text-xs text-dark-text-secondary mb-1">
-              <span>Amount</span>
-              <span>{stats.base}</span>
-            </div>
-            <input
-              type="number"
-              step="0.001"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green font-mono"
-            />
-          </div>
-
-          {/* Size percentage slider ticks */}
-          <div className="grid grid-cols-4 gap-1.5 pt-1 text-[10px] text-dark-text-secondary font-mono">
-            <span className="bg-dark-bg hover:bg-neutral-800 border border-dark-border py-1 text-center rounded cursor-pointer">25%</span>
-            <span className="bg-dark-bg hover:bg-neutral-800 border border-dark-border py-1 text-center rounded cursor-pointer">50%</span>
-            <span className="bg-dark-bg hover:bg-neutral-800 border border-dark-border py-1 text-center rounded cursor-pointer">75%</span>
-            <span className="bg-dark-bg hover:bg-neutral-800 border border-dark-border py-1 text-center rounded cursor-pointer">100%</span>
-          </div>
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              className={`w-full py-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
-                orderSide === 'BUY' ? 'bg-brand-green text-dark-bg hover:opacity-90 font-black' : 'bg-brand-red text-white hover:opacity-90 font-black'
-              }`}
-            >
-              {orderSide} {marketSymbol}
-            </button>
-          </div>
-        </form>
-      </div>
+      {/* Trade Execution Panel – extracted to OrderEntry component */}
+      <OrderEntry marketSymbol={marketSymbol} lastPrice={lastPrice} />
 
       {/* Recent Trades panel */}
       <div className="lg:col-span-12 bg-dark-card border border-dark-border rounded-xl p-4">
