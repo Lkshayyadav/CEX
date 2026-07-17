@@ -21,7 +21,7 @@ We are currently in the **foundation phase**. The directory structure, workspace
 *   [x] Shared interface and type definitions (`packages/types`)
 *   [x] High-performance Matching Engine (`apps/engine`)
 *   [ ] Database migrations, schemas, and indexing
-*   [ ] Frontend Trading Dashboard and WebSockets (`apps/frontend`)
+*   [x] Frontend Trading Dashboard and WebSockets (`apps/frontend`)
 
 ---
 
@@ -150,8 +150,9 @@ pnpm build
 *   [ ] Implement user-specific trade execution and balance alerts.
 
 ### Phase 4: Frontend Development
-*   [ ] Build user trading interface with real-time order books, charting, and transaction histories.
-*   [ ] Integrate backend REST and WebSocket APIs.
+*   [x] Scaffold React + TypeScript + Vite + Tailwind CSS frontend architecture.
+*   [x] Create core pages (Landing, Login, Register, Trade Dashboard grid, Portfolio Wallet).
+*   [ ] Integrate live WebSockets and chart libraries.
 
 ---
 

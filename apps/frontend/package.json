@@ -1,14 +1,32 @@
 {
   "name": "@cex/frontend",
-  "version": "1.0.0",
   "private": true,
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "echo \"frontend dev script not implemented yet\"",
-    "build": "echo \"frontend build script not implemented yet\"",
-    "test": "echo \"frontend test script not implemented yet\""
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@cex/common": "workspace:*",
-    "@cex/types": "workspace:*"
+    "@cex/types": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^6.22.3",
+    "lucide-react": "^0.363.0",
+    "decimal.js": "^10.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "oxlint": "^1.71.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^8.1.1"
   }
 }

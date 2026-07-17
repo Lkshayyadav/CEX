@@ -794,4 +794,53 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   **Pattern Matching Routing**: Dynamically maps Redis channel strings (e.g. `market:BTC_USDT:trades`) to user-facing stream identifiers (e.g. `trade:BTC_USDT`).
 *   **Stateful Subscription Map**: Maintains a fast lookup mapping between active sockets and the streams they are subscribed to, protecting bandwidth by sending data only to subscribed users.
 
+---
 
+## Phase 7.0: Frontend Architecture & Dashboard Foundation
+
+### Tasks Completed
+*   Scaffolded the React + TypeScript application inside `apps/frontend` using the Vite CLI in non-interactive mode.
+*   Configured the workspace build pipelines to fully integrate and lint the React application.
+*   Implemented client-side routing using `react-router-dom` with a persistent top navigation bar layout.
+*   Created isolated component modules for Landing page tickers, Auth views (Login/Register), Trading Dashboard panels, and Wallet balances.
+*   Integrated Tailwind CSS v4 in the frontend application using Vite compiler plugins and defined a sleek, dark trading theme.
+*   Configured strict TypeScript compile settings in the React application context.
+
+### What We Built
+*   `apps/frontend/package.json`: Configured script hooks, devDependencies, and monorepo workspace references.
+*   `apps/frontend/vite.config.ts`: Configured Vite to bundle React and utilize Tailwind CSS.
+*   `apps/frontend/src/index.css`: Loaded Tailwind v4 directives and set custom neon/slate color schemes.
+*   `apps/frontend/src/App.tsx`: Configured routing paths for Landing, Auth, Dashboard, and Wallet pages.
+*   `apps/frontend/src/components/Layout.tsx`: Created a persistent layout wrapper with simulated balances and profile nav headers.
+*   `apps/frontend/src/pages/LandingPage.tsx`: Created the public market overview page with mock token ticker grids.
+*   `apps/frontend/src/pages/LoginPage.tsx` & `apps/frontend/src/pages/RegisterPage.tsx`: Built form-based credential inputs mapping simulated account validation.
+*   `apps/frontend/src/pages/DashboardPage.tsx`: Built the trading layout grid containing mock SVG charts, ask/bid order books, buy/sell consoles, and recent trade tickers.
+*   `apps/frontend/src/pages/WalletPage.tsx`: Created the portfolio balances grid mapping free/locked assets and an interactive deposit simulator.
+
+### Why We Built It
+*   **Separation of Client Concerns**: Isolating the user interface into `apps/frontend` keeps the Web/Mobile UI independent from the low-latency matching engine and the gateway API gateways.
+*   **Consistent Styling Rules**: Setting theme tokens directly inside the CSS utilizing Tailwind CSS v4 enables writing consistent, high-performance utility classes for trading panels.
+*   **Modular View Layouts**: Segregating trade books, candlesticks, and ledger inputs into structured components provides a clean codebase that will easily connect to WebSockets in the next phases.
+
+### Files Created/Updated
+*   `apps/frontend/package.json`
+*   `apps/frontend/vite.config.ts`
+*   `apps/frontend/tsconfig.app.json`
+*   `apps/frontend/src/index.css`
+*   `apps/frontend/src/App.tsx`
+*   `apps/frontend/src/components/Layout.tsx`
+*   `apps/frontend/src/pages/LandingPage.tsx`
+*   `apps/frontend/src/pages/LoginPage.tsx`
+*   `apps/frontend/src/pages/RegisterPage.tsx`
+*   `apps/frontend/src/pages/DashboardPage.tsx`
+*   `apps/frontend/src/pages/WalletPage.tsx`
+*   `README.md`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm build`
+
+### Important Concepts
+*   **Tailwind CSS v4 Vite Integration**: Direct CSS imports compile styles within Vite, producing faster bundles.
+*   **Persistent Layout States**: Using React Router `<Outlet />` context allows child routes to synchronize login status and shared state details instantly.
+*   **Responsive CSS Grids**: The trading dashboard utilizes flexible Tailwind grids that layout charts, order books, and trade panels responsively.
