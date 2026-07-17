@@ -1,0 +1,14 @@
+{
+  "name": "@cex/common",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "echo \"common build script not implemented yet\"",
+    "test": "echo \"common test script not implemented yet\""
+  },
+  "dependencies": {
+    "@cex/types": "workspace:*"
+  }
+}

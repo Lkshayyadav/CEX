@@ -1,0 +1,167 @@
+# Centralized Exchange (CEX)
+
+A production-grade, high-performance Centralized Exchange (CEX) platform structured as a TypeScript/pnpm monorepo. This system is designed for high throughput, low-latency order matching, and clean segregation of concerns across micro-services.
+
+---
+
+## Current Project Status
+
+We are currently in the **foundation phase**. The directory structure, workspace configuration, and initial backend shell are ready. No core business logic, matching engine routines, database tables, or front-end components are implemented yet.
+
+*   [x] Workspace structures defined (`apps/*`, `packages/*`, `docker/`, `docs/`)
+*   [x] pnpm workspace linked
+*   [x] TypeScript compile environment configured
+*   [x] `apps/backend` Express foundation running on port 3000
+*   [x] Prisma ORM integration ready for PostgreSQL
+*   [ ] Shared math, database clients, and helpers (`packages/common`)
+*   [ ] Shared interface and type definitions (`packages/types`)
+*   [ ] High-performance Matching Engine (`apps/engine`)
+*   [ ] Database migrations, schemas, and indexing
+*   [ ] Frontend Trading Dashboard and WebSockets (`apps/frontend`)
+
+---
+
+## Tech Stack
+
+*   **Runtime Environment**: Node.js (>=18.0.0)
+*   **Package Management**: `pnpm` (>=9.0.0) Workspace Monorepo
+*   **Language**: TypeScript (v5.5+)
+*   **Web Framework (Backend)**: Express
+*   **Database ORM**: Prisma (PostgreSQL connector)
+*   **Bundler/Execution**: `tsx` (TypeScript Execute) & `tsc`
+
+---
+
+## Project Structure
+
+The codebase is organized as follows:
+
+```text
+├── apps/
+│   ├── backend/        # API Gateway (REST & WebSockets)
+│   ├── engine/         # Order matching & execution engine
+│   └── frontend/       # User dashboard, charts, & trading interface
+├── packages/
+│   ├── common/         # Shared utilities (math, DB clients, logs)
+│   └── types/          # Shared type and interface declarations
+├── docs/               # Architecture diagrams, specifications, & runbooks
+└── docker/             # Docker Compose setups & container definitions
+```
+
+---
+
+## Architecture Flow
+
+The high-level architecture separates the public-facing API Gateway (Backend) from the stateful matching engine (Engine) to guarantee sub-millisecond execution order processing.
+
+```mermaid
+graph TD
+    subgraph Client Layer
+        FE[Frontend: Trading UI & WebSockets]
+    end
+    subgraph API Gateway Layer
+        BE[Backend: Express REST API]
+    end
+    subgraph Core Processing Layer
+        EN[Engine: Order-Matching Engine]
+    end
+    subgraph Data Layer
+        DB[(PostgreSQL Database)]
+    end
+    subgraph Monorepo Shared Core
+        PK_C[packages/common]
+        PK_T[packages/types]
+    end
+
+    FE <-->|HTTP / WS| BE
+    BE <-->|Redis PubSub / IPC| EN
+    BE --->|Prisma Client| DB
+    
+    BE -.->|Depends on| PK_C
+    EN -.->|Depends on| PK_C
+    FE -.->|Depends on| PK_C
+    PK_C -.->|Depends on| PK_T
+```
+
+---
+
+## Setup Instructions
+
+### Prerequisites
+*   Node.js (>= 18)
+*   pnpm (>= 9)
+*   PostgreSQL Database instance
+
+### 1. Installation
+Clone the repository and install workspace dependencies:
+```bash
+pnpm install
+```
+
+### 2. Configure Environment Variables
+Navigate to `apps/backend/` and configure your environment:
+```bash
+cp apps/backend/.env
+```
+Inside `apps/backend/.env`, set:
+*   `PORT`: Port for the API server (default `3000`)
+*   `DATABASE_URL`: PostgreSQL connection string
+
+### 3. Build & Run
+To run the backend server in development mode:
+```bash
+pnpm --filter @cex/backend dev
+```
+
+To compile the entire workspace:
+```bash
+pnpm build
+```
+
+---
+
+## Roadmap
+
+### Phase 1: Core Foundation & API
+*   [x] Set up workspace and monorepo configurations.
+*   [x] Set up basic Express HTTP backend.
+*   [x] Configure Prisma with PostgreSQL database layer.
+*   [ ] Implement Authentication system (JWT + session storage).
+*   [ ] Model the DB schema (Users, Accounts, Balances, Orders, Trades).
+
+### Phase 2: High-Performance Matching Engine
+*   [ ] Implement a stateful, memory-based limit order book (LOB).
+*   [ ] Integrate Redis/BullMQ to queue order requests from the API.
+*   [ ] Implement double-entry ledger bookkeeping for deposit, withdrawal, and trade settlements.
+
+### Phase 3: Real-Time & WebSockets
+*   [ ] Set up Socket.io/WS feeds in the backend.
+*   [ ] Establish market-data feeds (ticker, order book updates, recent trades).
+*   [ ] Implement user-specific trade execution and balance alerts.
+
+### Phase 4: Frontend Development
+*   [ ] Build user trading interface with real-time order books, charting, and transaction histories.
+*   [ ] Integrate backend REST and WebSocket APIs.
+
+---
+
+## Future Features
+
+*   **Internal Ledger Audits**: Real-time solvency and cryptographic Proof of Reserves (PoR).
+*   **Security Mechanisms**: Multi-signature deposit systems and cold/warm/hot wallet management structures.
+*   **API Keys Management**: Cryptographically signed HMAC header authentication for algorithmic traders.
+
+---
+
+## Contributing
+
+1. Create a feature branch: `git checkout -b feature/your-feature-name`
+2. Commit your changes: `git commit -m 'feat: add some feature'`
+3. Push to the branch: `git push origin feature/your-feature-name`
+4. Open a Pull Request.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the `LICENSE` file for details.

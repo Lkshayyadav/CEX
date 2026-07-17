@@ -1,0 +1,14 @@
+{
+  "name": "@cex/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"frontend dev script not implemented yet\"",
+    "build": "echo \"frontend build script not implemented yet\"",
+    "test": "echo \"frontend test script not implemented yet\""
+  },
+  "dependencies": {
+    "@cex/common": "workspace:*",
+    "@cex/types": "workspace:*"
+  }
+}

@@ -1,0 +1,189 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  LIMIT
+  MARKET
+}
+
+enum OrderStatus {
+  PENDING
+  OPEN
+  PARTIALLY_FILLED
+  FILLED
+  CANCELLED
+  REJECTED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  INTERNAL_TRANSFER
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  email        String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  balances     Balance[]
+  orders       Order[]
+  transactions Transaction[]
+}
+
+model Asset {
+  id        String   @id @default(uuid())
+  symbol    String   @unique // e.g. BTC, ETH, SOL, INR
+  name      String
+  decimals  Int      @default(8)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  balances     Balance[]
+  baseMarkets  Market[]      @relation("BaseAsset")
+  quoteMarkets Market[]      @relation("QuoteAsset")
+  transactions Transaction[]
+  fills        Fill[]        @relation("FeeAsset")
+}
+
+model Balance {
+  id        String   @id @default(uuid())
+  userId    String
+  assetId   String
+  free      Decimal  @default(0) @db.Decimal(32, 16) // Available for trading
+  locked    Decimal  @default(0) @db.Decimal(32, 16) // Locked in orders or withdrawals
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, assetId])
+  @@index([userId])
+  @@index([assetId])
+}
+
+model Market {
+  id           String   @id @default(uuid())
+  symbol       String   @unique // e.g. BTC/INR, ETH/INR
+  baseAssetId  String
+  quoteAssetId String
+  minOrderSize Decimal  @default(0) @db.Decimal(32, 16)
+  maxOrderSize Decimal  @default(0) @db.Decimal(32, 16)
+  tickSize     Decimal  @default(0) @db.Decimal(32, 16) // Minimum price increment
+  stepSize     Decimal  @default(0) @db.Decimal(32, 16) // Minimum quantity increment
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  baseAsset    Asset    @relation("BaseAsset", fields: [baseAssetId], references: [id], onDelete: Restrict)
+  quoteAsset   Asset    @relation("QuoteAsset", fields: [quoteAssetId], references: [id], onDelete: Restrict)
+  orders       Order[]
+  fills        Fill[]
+
+  @@unique([baseAssetId, quoteAssetId])
+  @@index([baseAssetId])
+  @@index([quoteAssetId])
+  @@index([isActive])
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  userId            String
+  marketId          String
+  side              OrderSide
+  type              OrderType
+  status            OrderStatus @default(PENDING)
+  price             Decimal?    @db.Decimal(32, 16) // Nullable for market orders
+  quantity          Decimal     @db.Decimal(32, 16)
+  filledQuantity    Decimal     @default(0) @db.Decimal(32, 16)
+  remainingQuantity Decimal     @db.Decimal(32, 16)
+  averageFillPrice  Decimal?    @db.Decimal(32, 16)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  market            Market      @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  
+  fillsAsMaker      Fill[]      @relation("MakerOrder")
+  fillsAsTaker      Fill[]      @relation("TakerOrder")
+
+  @@index([userId])
+  @@index([marketId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Fill {
+  id            String   @id @default(uuid())
+  makerOrderId  String
+  takerOrderId  String
+  marketId      String
+  price         Decimal  @db.Decimal(32, 16)
+  quantity      Decimal  @db.Decimal(32, 16)
+  fee           Decimal  @default(0) @db.Decimal(32, 16)
+  feeAssetId    String
+  createdAt     DateTime @default(now())
+  
+  makerOrder    Order    @relation("MakerOrder", fields: [makerOrderId], references: [id], onDelete: Restrict)
+  takerOrder    Order    @relation("TakerOrder", fields: [takerOrderId], references: [id], onDelete: Restrict)
+  feeAsset      Asset    @relation("FeeAsset", fields: [feeAssetId], references: [id], onDelete: Restrict)
+  market        Market   @relation(fields: [marketId], references: [id], onDelete: Restrict)
+
+  @@index([makerOrderId])
+  @@index([takerOrderId])
+  @@index([feeAssetId])
+  @@index([marketId])
+  @@index([createdAt])
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  userId      String
+  type        TransactionType
+  status      TransactionStatus @default(PENDING)
+  assetId     String
+  amount      Decimal           @db.Decimal(32, 16)
+  fee         Decimal           @default(0) @db.Decimal(32, 16)
+  txHash      String?           @unique // Hash on the blockchain
+  referenceId String?           // ID for fiat/internal/blockchain transfers (e.g. Razorpay, UPI, Bank Transfer)
+  address     String?           // Destination or source blockchain address
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset       Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([assetId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
