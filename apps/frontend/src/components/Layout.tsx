@@ -1,20 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Wallet, TrendingUp, User, LogOut, LogIn, LayoutGrid } from 'lucide-react';
+import { Wallet, TrendingUp, User, LogOut, LogIn } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
+
+interface BalanceResponse {
+  success: boolean;
+  data: Array<{
+    free: string;
+    locked: string;
+    asset: {
+      symbol: string;
+      name: string;
+    };
+  }>;
+}
 
 export const Layout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // Simulated login state for presentation
+  const { user, isLoggedIn, logout } = useAuth();
+  const [usdtBalance, setUsdtBalance] = useState<string>('0.00');
+
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!isLoggedIn) return;
+      try {
+        const response = await api.get<BalanceResponse>('/balances');
+        if (response.data && response.data.success) {
+          const usdt = response.data.data.find(b => b.asset.symbol === 'USDT');
+          if (usdt) {
+            // Convert to fixed 2 decimals for display
+            const val = parseFloat(usdt.free);
+            setUsdtBalance(isNaN(val) ? '0.00' : val.toFixed(2));
+          } else {
+            setUsdtBalance('0.00');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch header balances:', error);
+      }
+    };
+
+    fetchBalance();
+    
+    // Set up polling interval to keep balances in sync
+    const interval = setInterval(fetchBalance, 10000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn]);
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    logout();
     navigate('/');
-  };
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    navigate('/dashboard');
   };
 
   return (
@@ -70,13 +107,16 @@ export const Layout: React.FC = () => {
 
           {/* Right: User actions & simulated balances */}
           <div className="flex items-center space-x-4">
-            {isLoggedIn ? (
+            {isLoggedIn && user ? (
               <>
                 {/* Simulated Wallet Indicator */}
                 <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border">
                   <Wallet className="w-4 h-4 text-brand-green" />
-                  <span className="text-xs text-dark-text-secondary">Balance:</span>
-                  <span className="text-xs font-mono font-bold text-white">$12,450.80 <span className="text-[10px] text-brand-green">USDT</span></span>
+                  <span className="text-xs text-dark-text-secondary">USDT:</span>
+                  <span className="text-xs font-mono font-bold text-white">
+                    ${usdtBalance}{' '}
+                    <span className="text-[10px] text-brand-green">USDT</span>
+                  </span>
                 </div>
 
                 {/* User indicator */}
@@ -84,13 +124,13 @@ export const Layout: React.FC = () => {
                   <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center border border-dark-border">
                     <User className="w-4 h-4 text-dark-text-secondary" />
                   </div>
-                  <span className="hidden lg:inline text-xs text-dark-text-secondary">trader@cex.com</span>
+                  <span className="hidden lg:inline text-xs text-dark-text-secondary">{user.username}</span>
                 </div>
 
                 {/* Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className="p-2 rounded-lg text-dark-text-secondary hover:text-brand-red hover:bg-dark-card transition-colors"
+                  className="p-2 rounded-lg text-dark-text-secondary hover:text-brand-red hover:bg-dark-card transition-colors cursor-pointer"
                   title="Logout"
                 >
                   <LogOut className="w-4 h-4" />
@@ -100,7 +140,7 @@ export const Layout: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Link
                   to="/login"
-                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-dark-text-primary hover:bg-dark-card transition-all"
+                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-dark-text-primary hover:bg-dark-card transition-all font-semibold"
                 >
                   Sign In
                 </Link>
@@ -118,7 +158,7 @@ export const Layout: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Outlet context={{ isLoggedIn, handleLogin }} />
+        <Outlet />
       </main>
 
       {/* Footer */}

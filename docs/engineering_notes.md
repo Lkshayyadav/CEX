@@ -844,3 +844,51 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   **Tailwind CSS v4 Vite Integration**: Direct CSS imports compile styles within Vite, producing faster bundles.
 *   **Persistent Layout States**: Using React Router `<Outlet />` context allows child routes to synchronize login status and shared state details instantly.
 *   **Responsive CSS Grids**: The trading dashboard utilizes flexible Tailwind grids that layout charts, order books, and trade panels responsively.
+
+---
+
+## Phase 7.1: Frontend API Integration (Auth & Wallet)
+
+### Tasks Completed
+*   Installed `axios` in `apps/frontend` and configured a global API instance pointing to the backend namespace (`http://localhost:3000/api/v1`).
+*   Created request interceptors to automatically retrieve JWT tokens from `localStorage` and inject them as `Authorization` headers.
+*   Built the global `AuthContext` to fetch authenticated profiles via `GET /auth/me` and maintain dynamic user states.
+*   Updated the `RegisterPage` to make HTTP POST requests to `/auth/register` and redirect to Login on success.
+*   Updated the `LoginPage` to trigger authentication via `/auth/login`, save JWT token keys, and populate user sessions.
+*   Connected `WalletPage` to load live asset balances using `GET /balances` and submit simulated deposit transfers to `POST /balances/deposit`.
+*   Integrated global user sessions and wallet status into the top header navbar component.
+
+### What We Built
+*   `apps/frontend/src/lib/api.ts`: Setup Axios client instance with token inject interceptors.
+*   `apps/frontend/src/context/AuthContext.tsx`: Setup context session provider for login/logout and profiles validation.
+*   `apps/frontend/src/App.tsx`: Wrapped routing endpoints within the `AuthProvider`.
+*   `apps/frontend/src/components/Layout.tsx`: Loaded user profile details and header balances via context.
+*   `apps/frontend/src/pages/RegisterPage.tsx`: Connected forms submission to the backend registration API.
+*   `apps/frontend/src/pages/LoginPage.tsx`: Linked email/password fields to return JWT authorizations.
+*   `apps/frontend/src/pages/WalletPage.tsx`: Loaded live user asset metrics and hooked up the simulated deposit ledger.
+
+### Why We Built It
+*   **Decoupled Authentication Lifecycle**: Handling state in a React Context isolates profile checks from component rendering cycles, ensuring uniform headers are attached to API calls.
+*   **Automatic Header Enrichment**: Using Axios interceptors avoids manual token copying inside page components, minimizing code bloat and preventing unauthorized API rejections.
+*   **Robust Balance Merging**: Merging live API responses with a default list of token assets guarantees new users get a clean, zeroed dashboard interface instead of empty states.
+
+### Files Created/Updated
+*   `apps/frontend/package.json`
+*   `apps/frontend/src/lib/api.ts`
+*   `apps/frontend/src/context/AuthContext.tsx`
+*   `apps/frontend/src/App.tsx`
+*   `apps/frontend/src/components/Layout.tsx`
+*   `apps/frontend/src/pages/RegisterPage.tsx`
+*   `apps/frontend/src/pages/LoginPage.tsx`
+*   `apps/frontend/src/pages/WalletPage.tsx`
+*   `README.md`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm build`
+
+### Important Concepts
+*   **JWT Token Interceptor**: Automatically decorates all outbound requests with client credentials.
+*   **Context Session Guarding**: Keeps route visibility synchronized with backend authentication.
+*   **Asset Balance Merging**: Merges real-time API details with standard market symbols to maintain consistent UI layouts.
+

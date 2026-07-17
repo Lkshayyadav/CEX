@@ -152,6 +152,7 @@ pnpm build
 ### Phase 4: Frontend Development
 *   [x] Scaffold React + TypeScript + Vite + Tailwind CSS frontend architecture.
 *   [x] Create core pages (Landing, Login, Register, Trade Dashboard grid, Portfolio Wallet).
+*   [x] Connect the React frontend to the Express backend API (Auth & Wallet).
 *   [ ] Integrate live WebSockets and chart libraries.
 
 ---

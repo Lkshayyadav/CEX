@@ -1,24 +1,41 @@
 import React, { useState } from 'react';
-import { Link, useOutletContext, useNavigate } from 'react-router-dom';
-import { Mail, Lock, UserPlus, ArrowRight, User } from 'lucide-react';
-
-interface LayoutContext {
-  isLoggedIn: boolean;
-  handleLogin: () => void;
-}
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, ArrowRight, User as UserIcon, AlertCircle, Loader2 } from 'lucide-react';
+import { api } from '../lib/api';
 
 export const RegisterPage: React.FC = () => {
-  const { handleLogin } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate successful registration and sign-in
-    handleLogin();
-    navigate('/dashboard');
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await api.post('/auth/register', {
+        email,
+        username,
+        password,
+      });
+
+      if (response.data && response.data.success) {
+        // Redirect to login page on success
+        navigate('/login', { state: { message: 'Registration successful! Please log in.' } });
+      } else {
+        setError('Failed to register. Unexpected response from server.');
+      }
+    } catch (err: any) {
+      console.error('Registration failed:', err);
+      const errMsg = err.response?.data?.error?.message || 'Registration failed. Please try again.';
+      setError(errMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,21 +48,28 @@ export const RegisterPage: React.FC = () => {
           </p>
         </div>
 
+        {error && (
+          <div className="flex items-center space-x-2 p-3.5 bg-brand-red/10 border border-brand-red/20 rounded-xl text-xs text-brand-red">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={onSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
-              <label className="text-xs font-semibold text-dark-text-secondary uppercase tracking-wider">Full Name</label>
+              <label className="text-xs font-semibold text-dark-text-secondary uppercase tracking-wider">Username</label>
               <div className="mt-1.5 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-4 w-4 text-dark-text-secondary" />
+                  <UserIcon className="h-4 w-4 text-dark-text-secondary" />
                 </div>
                 <input
                   type="text"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="bg-dark-bg border border-dark-border rounded-xl w-full pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-green transition-all"
-                  placeholder="John Doe"
+                  placeholder="trader101"
                 />
               </div>
             </div>
@@ -112,10 +136,20 @@ export const RegisterPage: React.FC = () => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-semibold rounded-xl text-dark-bg bg-brand-green hover:opacity-90 focus:outline-none transition-all items-center space-x-2 cursor-pointer"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-semibold rounded-xl text-dark-bg bg-brand-green hover:opacity-90 focus:outline-none transition-all items-center space-x-2 cursor-pointer disabled:opacity-50"
             >
-              <span>Create Account</span>
-              <ArrowRight className="w-4 h-4" />
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <span>Create Account</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </form>

@@ -1,7 +1,23 @@
-import React, { useState } from 'react';
-import { Wallet, ArrowDownCircle, ArrowUpCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wallet, ArrowDownCircle, ArrowUpCircle, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
-interface AssetBalance {
+interface BalanceDTO {
+  id: string;
+  userId: string;
+  assetId: string;
+  free: string;
+  locked: string;
+  asset: {
+    id: string;
+    symbol: string;
+    name: string;
+    decimals: number;
+  };
+}
+
+interface DisplayBalance {
   symbol: string;
   name: string;
   free: string;
@@ -10,28 +26,114 @@ interface AssetBalance {
   usdValue: string;
 }
 
-const mockBalances: AssetBalance[] = [
-  { symbol: 'USDT', name: 'Tether USD', free: '5,000.00', locked: '0.00', total: '5,000.00', usdValue: '$5,000.00' },
-  { symbol: 'BTC', name: 'Bitcoin', free: '0.07500000', locked: '0.01000000', total: '0.08500000', usdValue: '$8,365.74' },
-  { symbol: 'ETH', name: 'Ethereum', free: '1.25000000', locked: '0.00000000', total: '1.25000000', usdValue: '$4,806.50' },
-  { symbol: 'SOL', name: 'Solana', free: '12.40000000', locked: '4.50000000', total: '16.90000000', usdValue: '$3,156.07' },
+const ASSET_PRICES: Record<string, number> = {
+  USDT: 1.0,
+  BTC: 98420.50,
+  ETH: 3845.20,
+  SOL: 186.75,
+};
+
+const DEFAULT_ASSETS = [
+  { symbol: 'USDT', name: 'Tether USD' },
+  { symbol: 'BTC', name: 'Bitcoin' },
+  { symbol: 'ETH', name: 'Ethereum' },
+  { symbol: 'SOL', name: 'Solana' },
 ];
 
 export const WalletPage: React.FC = () => {
+  const { isLoggedIn } = useAuth();
+  const [balances, setBalances] = useState<BalanceDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [depositAsset, setDepositAsset] = useState('USDT');
   const [depositAmount, setDepositAmount] = useState('1000.00');
   const [isSimulating, setIsSimulating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleDeposit = (e: React.FormEvent) => {
+  const fetchBalances = async () => {
+    if (!isLoggedIn) return;
+    try {
+      const response = await api.get<{ success: boolean; data: BalanceDTO[] }>('/balances');
+      if (response.data && response.data.success) {
+        setBalances(response.data.data);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch wallet balances:', err);
+      setError(err.response?.data?.error?.message || 'Failed to fetch asset balances.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBalances();
+  }, [isLoggedIn]);
+
+  const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSimulating(true);
-    setTimeout(() => {
+    setError(null);
+    setShowSuccess(false);
+
+    try {
+      const response = await api.post('/balances/deposit', {
+        assetSymbol: depositAsset,
+        amount: depositAmount,
+      });
+
+      if (response.data && response.data.success) {
+        setShowSuccess(true);
+        await fetchBalances(); // reload balances
+        setTimeout(() => setShowSuccess(false), 4000);
+      } else {
+        setError('Simulated deposit failed.');
+      }
+    } catch (err: any) {
+      console.error('Deposit simulation failed:', err);
+      setError(err.response?.data?.error?.message || 'Deposit simulation failed.');
+    } finally {
       setIsSimulating(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
+    }
   };
+
+  // Merge default assets list with actual database balance records
+  const displayBalances: DisplayBalance[] = DEFAULT_ASSETS.map((def) => {
+    const found = balances.find((b) => b.asset.symbol.toUpperCase() === def.symbol);
+    const freeNum = found ? parseFloat(found.free) : 0;
+    const lockedNum = found ? parseFloat(found.locked) : 0;
+    const totalNum = freeNum + lockedNum;
+    const price = ASSET_PRICES[def.symbol] || 0;
+    const usdEquivalent = totalNum * price;
+
+    // Formatting decimals nicely
+    const formatDecimals = def.symbol === 'USDT' ? 2 : 8;
+
+    return {
+      symbol: def.symbol,
+      name: def.name,
+      free: freeNum.toFixed(formatDecimals),
+      locked: lockedNum.toFixed(formatDecimals),
+      total: totalNum.toFixed(formatDecimals),
+      usdValue: `$${usdEquivalent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    };
+  });
+
+  // Calculate overall portfolio value in USD
+  const totalPortfolioValue = displayBalances.reduce((sum, item) => {
+    const numericStr = item.usdValue.replace(/[$,]/g, '');
+    const val = parseFloat(numericStr);
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center flex-col space-y-4">
+        <Loader2 className="w-8 h-8 text-brand-green animate-spin" />
+        <p className="text-dark-text-secondary text-sm">Verifying ledger entries...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 py-4">
@@ -47,10 +149,11 @@ export const WalletPage: React.FC = () => {
               <span>Estimated Portfolio Value</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              $21,328.31 <span className="text-xs text-dark-text-secondary font-mono font-medium">USDT EQUIVALENT</span>
+              ${totalPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+              <span className="text-xs text-dark-text-secondary font-mono font-medium">USDT EQUIVALENT</span>
             </h1>
             <p className="text-xs text-brand-green flex items-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-green inline-block mr-1.5 animate-pulse"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-green inline-block mr-1.5 auto-pulse"></span>
               Ledger verified & synchronized
             </p>
           </div>
@@ -68,6 +171,13 @@ export const WalletPage: React.FC = () => {
         </div>
       </section>
 
+      {error && (
+        <div className="flex items-center space-x-2 p-3.5 bg-brand-red/10 border border-brand-red/20 rounded-xl text-xs text-brand-red">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Balances List Table */}
         <div className="lg:col-span-2 bg-dark-card border border-dark-border rounded-2xl p-6">
@@ -84,7 +194,7 @@ export const WalletPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-dark-border/20">
-                {mockBalances.map((asset) => (
+                {displayBalances.map((asset) => (
                   <tr key={asset.symbol} className="hover:bg-neutral-800/10 transition-colors">
                     <td className="py-4">
                       <div className="flex items-center space-x-2.5">
