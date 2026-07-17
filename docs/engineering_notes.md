@@ -1069,4 +1069,14 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Updated `start.sh` to exclude local Postgres/Redis health pings, since the system now points directly to highly-available cloud hosting.
 *   Pushed active schemas to Neon and seeded assets/markets successfully.
 
+---
+
+## CORS & WebSocket Origin Handshake Validation
+
+### Tasks Completed
+*   Configured the `CORS_ALLOWED_ORIGINS` env parameter to allow both `http://localhost:5173` and `http://localhost:5174` concurrently.
+*   Migrated WebSocket service initialization from automatic HTTP attachment to manual upgrade interception (`noServer: true` configuration in the `ws` package).
+*   Registered a custom HTTP `upgrade` listener inside `apps/backend/src/index.ts` to inspect incoming upgrade requests, matching client handshake headers against trusted HTTP origins before passing context to the `ws` server.
+
+
 

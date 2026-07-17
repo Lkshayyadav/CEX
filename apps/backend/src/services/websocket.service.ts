@@ -10,11 +10,11 @@ class WebSocketManager {
   private clientSubscriptions: Map<WebSocket, Set<string>> = new Map();
 
   /**
-   * Initializes the WebSocket server and binds it to the HTTP server.
+   * Initializes the WebSocket server.
    */
   public init(server: Server): void {
-    this.wss = new WebSocketServer({ server });
-    logger.info('WebSocket server attached to HTTP server');
+    this.wss = new WebSocketServer({ noServer: true });
+    logger.info('WebSocket server initialized (noServer mode)');
 
     this.wss.on('connection', (ws: WebSocket) => {
       logger.info('New WebSocket connection established');
@@ -120,6 +120,17 @@ class WebSocketManager {
         }
       }
     });
+  }
+
+  /**
+   * Manually handles HTTP upgrade requests for WebSocket protocol negotiation.
+   */
+  public handleUpgrade(request: any, socket: any, head: any): void {
+    if (this.wss) {
+      this.wss.handleUpgrade(request, socket, head, (ws) => {
+        this.wss?.emit('connection', ws, request);
+      });
+    }
   }
 
   /**
