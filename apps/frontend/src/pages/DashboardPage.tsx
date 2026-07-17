@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { useWebSocketStream } from '../context/WebSocketContext';
 import { OrderEntry } from '../components/OrderEntry';
+import { CandlestickChart } from '../components/CandlestickChart';
+import type { CandlestickChartHandle } from '../components/CandlestickChart';
+import { OpenOrders } from '../components/OpenOrders';
 
 interface OrderBookLevel {
   price: string;
@@ -60,6 +63,7 @@ const INITIAL_MOCK_TRADES: RecentTrade[] = [
 
 export const DashboardPage: React.FC = () => {
   const [marketSymbol, setMarketSymbol] = useState('BTC/USDT');
+  const chartRef = useRef<CandlestickChartHandle>(null);
 
   const stats = DEFAULT_MARKET_STATS[marketSymbol] || DEFAULT_MARKET_STATS['BTC/USDT'];
   const [lastPrice, setLastPrice] = useState<number>(parseFloat(stats.lastPrice));
@@ -216,7 +220,7 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Candlestick Chart Placeholder */}
+      {/* Main Candlestick Chart */}
       <div className="lg:col-span-6 bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col min-h-[480px]">
         <div className="flex items-center justify-between border-b border-dark-border pb-3 mb-4">
           <h3 className="font-bold text-white text-sm">Candlestick Chart</h3>
@@ -227,47 +231,11 @@ export const DashboardPage: React.FC = () => {
             <span className="px-2 py-0.5 rounded hover:text-white cursor-pointer">1D</span>
           </div>
         </div>
-
-        {/* Mock Graphic Chart */}
-        <div className="flex-1 flex flex-col justify-end bg-dark-bg/60 border border-dark-border/40 rounded-lg p-4 relative overflow-hidden">
-          {/* Background grid lines */}
-          <div className="absolute inset-0 flex flex-col justify-between opacity-10 pointer-events-none p-4">
-            <div className="border-b border-white w-full"></div>
-            <div className="border-b border-white w-full"></div>
-            <div className="border-b border-white w-full"></div>
-            <div className="border-b border-white w-full"></div>
-          </div>
-
-          {/* SVG Mock Candlesticks */}
-          <svg className="w-full h-64 overflow-visible" preserveAspectRatio="none">
-            <line x1="10%" y1="120" x2="10%" y2="200" stroke="#f6465d" strokeWidth="2" />
-            <rect x="8%" y="140" width="4%" height="40" fill="#f6465d" rx="1" />
-
-            <line x1="25%" y1="90" x2="25%" y2="170" stroke="#0ecb81" strokeWidth="2" />
-            <rect x="23%" y="110" width="4%" height="50" fill="#0ecb81" rx="1" />
-
-            <line x1="40%" y1="60" x2="40%" y2="130" stroke="#0ecb81" strokeWidth="2" />
-            <rect x="38%" y="70" width="4%" height="45" fill="#0ecb81" rx="1" />
-
-            <line x1="55%" y1="80" x2="55%" y2="150" stroke="#f6465d" strokeWidth="2" />
-            <rect x="53%" y="95" width="4%" height="40" fill="#f6465d" rx="1" />
-
-            <line x1="70%" y1="40" x2="70%" y2="100" stroke="#0ecb81" strokeWidth="2" />
-            <rect x="68%" y="50" width="4%" height="45" fill="#0ecb81" rx="1" />
-
-            <line x1="85%" y1="20" x2="85%" y2="80" stroke="#0ecb81" strokeWidth="2" />
-            <rect x="83%" y="30" width="4%" height="40" fill="#0ecb81" rx="1" />
-          </svg>
-
-          <div className="flex justify-between text-[10px] text-dark-text-secondary mt-4 border-t border-dark-border/30 pt-2 font-mono">
-            <span>14:00</span>
-            <span>14:05</span>
-            <span>14:10</span>
-            <span>14:15</span>
-            <span>14:20</span>
-            <span>14:25</span>
-          </div>
-        </div>
+        <CandlestickChart
+          ref={chartRef}
+          basePrice={lastPrice}
+          symbol={marketSymbol}
+        />
       </div>
 
       {/* Order Book Panel */}
@@ -359,6 +327,10 @@ export const DashboardPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Open Orders panel */}
+      <OpenOrders />
     </div>
+
   );
 };

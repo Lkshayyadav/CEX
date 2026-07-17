@@ -963,3 +963,38 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   **Single-responsibility component**: `OrderEntry` owns all form state and API side effects; the dashboard only passes props.
 *   **Global toast singleton**: One `<Toaster />` at App root avoids duplicate notification stacks across routes.
 *   **Auth-gated submission**: Unauthenticated users see an inline link instead of an error mid-flight.
+
+---
+
+## Phase 7.4: Advanced Dashboard (Charting & Order Management)
+
+### Tasks Completed
+*   Installed `lightweight-charts` in `apps/frontend`.
+*   Created `CandlestickChart.tsx` using the `createChart` / `addCandlestickSeries` imperative API, isolated from React's render cycle via `useEffect` + direct DOM ref.
+*   Implemented `ResizeObserver` inside the chart effect to handle container width changes without re-creating the chart instance.
+*   Exposed a `CandlestickChartHandle.updateCandle()` method via `useImperativeHandle` + `forwardRef` for future real-time kline WebSocket feeds.
+*   Generated 60-candle randomised seed data on mount, re-seeded on market symbol change.
+*   Themed the chart to match the CEX dark palette: `#0d0f14` background, `#0ecb81`/`#f6465d` up/down candle colours, `#1e2129` grid lines.
+*   Created `OpenOrders.tsx` which fetches `GET /orders`, filters to status `OPEN`, and renders a table with: Date, Market, Side badge, Type, Price, Quantity, Filled %, and Cancel button.
+*   Per-row cancel loading state uses a `Set<string>` of cancelling IDs — prevents double-click races without a global lock.
+*   Cancel calls `DELETE /orders/:id`; on success the order is optimistically removed from local state and a toast confirms; on failure a typed `AxiosError<BackendError>` message is surfaced.
+*   Replaced the SVG mock chart block in `DashboardPage.tsx` with `<CandlestickChart>` and appended `<OpenOrders>` below the recent trades panel.
+
+### Files Created/Updated
+*   `apps/frontend/src/components/CandlestickChart.tsx`
+*   `apps/frontend/src/components/OpenOrders.tsx`
+*   `apps/frontend/src/pages/DashboardPage.tsx`
+*   `apps/frontend/package.json`
+*   `docs/engineering_notes.md`
+*   `README.md`
+
+### Commands Used
+*   `npx pnpm add lightweight-charts --filter @cex/frontend`
+*   `npx pnpm build`
+
+### Important Concepts
+*   **Chart outside React cycle**: `createChart()` writes directly to a DOM node via `useRef`; React never re-renders the chart canvas — only state affecting surrounding UI triggers re-renders.
+*   **`ResizeObserver` for responsiveness**: Attached once inside `useEffect`, observes the container div and calls `chart.resize()` — no window event listeners needed.
+*   **`forwardRef` + `useImperativeHandle`**: Provides a typed escape hatch (`updateCandle`) for the parent to push real-time kline data into the chart without prop drilling.
+*   **Per-row cancellation Set**: Tracking cancelling order IDs in a `Set<string>` allows concurrent cancellations on different rows without locking the whole table.
+*   **Optimistic removal**: The cancelled order is removed from state immediately on API success, giving instant UI feedback before any background refetch.
