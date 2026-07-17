@@ -23,3 +23,4 @@ export const statusCheckController = async (req: Request, res: Response, next: N
 };
 
 export * from './auth.controller';
+export * from './market.controller';

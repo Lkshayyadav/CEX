@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
+import marketRoutes from './market.routes';
 
 const router = Router();
 
@@ -16,5 +17,8 @@ router.get('/health', (req, res) => {
 
 // Mount authentication sub-routes
 router.use('/auth', authRoutes);
+
+// Mount market sub-routes (assets and markets)
+router.use('/', marketRoutes);
 
 export default router;

@@ -18,3 +18,4 @@ export const UserRepository = {
 };
 
 export * from './auth.repository';
+export * from './market.repository';

@@ -26,6 +26,28 @@ export const validateRequest = (schema: ZodSchema) => {
 };
 
 /**
+ * Zod validation middleware for Express request params
+ */
+export const validateRequestParams = (schema: ZodSchema) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      req.params = await schema.parseAsync(req.params) as any;
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const details = error.issues.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        }));
+        sendErrorResponse(res, 'Validation failed', HTTP_STATUS.BAD_REQUEST, details);
+        return;
+      }
+      next(error);
+    }
+  };
+};
+
+/**
  * Basic interface validator helper (legacy placeholder design).
  */
 export const validateRequestBodyKeys = (requiredKeys: string[]) => {
@@ -47,3 +69,4 @@ export const validateRequestBodyKeys = (requiredKeys: string[]) => {
 };
 
 export * from './auth.validator';
+export * from './market.validator';

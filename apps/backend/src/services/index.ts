@@ -15,3 +15,4 @@ export const UserService = {
 };
 
 export * from './auth.service';
+export * from './market.service';

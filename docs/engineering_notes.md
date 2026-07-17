@@ -495,5 +495,57 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Casting `req` to `any` to set custom values in middleware, which silences warnings but destroys type checking in downstream controllers.
 *   Forgetting to verify if the token exists inside the `Authorization` string after splitting the Bearer prefix, which can result in runtime crashes.
 
+---
+
+## Phase 3.2: Asset & Market Management
+
+### Tasks Completed
+*   Created type definitions for assets and markets in `types/market.ts`.
+*   Implemented `marketRepository` with queries targeting active assets, active markets, and market by symbol using selective field inclusion.
+*   Implemented `marketService` to handle asset and market lists, decimal-to-string mapping, and not-found validations.
+*   Implemented `marketController` with endpoints to retrieve assets, markets, and detailed market information by symbol.
+*   Created Zod request params validator schema `getMarketBySymbolSchema` inside `validators/market.validator.ts`.
+*   Implemented generic `validateRequestParams` middleware in the validator layer to handle path parameter schema validation.
+*   Mounted market sub-routes (`/assets` and `/markets`) to the main API v1 router.
+*   Verified that the TypeScript project builds successfully.
+
+### What We Built
+*   `apps/backend/src/types/market.ts`: Defines strong typings for Asset and Market entities.
+*   `apps/backend/src/repositories/market.repository.ts`: Handles Prisma queries using `select` and `include` projections to prevent over-fetching.
+*   `apps/backend/src/services/market.service.ts`: Translates database-level `Decimal` values into safe string formats for accurate JSON serialization.
+*   `apps/backend/src/validators/market.validator.ts`: Validates the market symbol parameter format (e.g. `BTC/USDT`).
+
+### Why We Built It
+*   **Precision Safety**: Financial values must not be serialized as Javascript floating-point numbers due to the risk of decimal precision loss. Mapping values to strings in the service layer enforces data integrity.
+*   **Parameter Validation**: Validating route parameters like `:symbol` prior to hitting the controller reduces database load from malformed queries and prevents unexpected errors.
+
+### Files Created/Updated
+*   `apps/backend/src/types/market.ts`
+*   `apps/backend/src/repositories/market.repository.ts`
+*   `apps/backend/src/services/market.service.ts`
+*   `apps/backend/src/controllers/market.controller.ts`
+*   `apps/backend/src/routes/market.routes.ts`
+*   `apps/backend/src/validators/market.validator.ts`
+*   `apps/backend/src/validators/index.ts`
+*   `apps/backend/src/routes/index.ts`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend run build`
+
+### Important Concepts
+*   **Precision and Decimals**: Centralized exchange records must avoid standard binary floating-point representation. Decimals should be mapped to strings or handled with special decimal arithmetic libraries.
+*   **Param-Level Validation**: Route parameters require standard validation and coercion patterns just like request body inputs.
+
+### Interview Questions
+1.  *Why do we represent financial values (like transaction amounts or order prices) as strings or Decimal types in API responses rather than JavaScript numbers?*
+    *   **Answer**: Standard JavaScript numbers are double-precision floating-point numbers (IEEE 754). They cannot accurately represent decimal fractions, resulting in rounding errors (like `0.1 + 0.2 = 0.30000000000000004`). In financial exchanges, even a tiny rounding error can cause audits to fail and lose capital. String representations preserve exact digits, and operations are performed using specialized decimal libraries (like `decimal.js`).
+2.  *How do selective includes or select statements in Prisma prevent over-fetching and improve DB performance?*
+    *   **Answer**: By default, Prisma queries fetch all columns from the database tables. Using `select` or explicit `include` with projections ensures only the needed fields are queried and returned by the SQL server. This reduces memory footprint, serialisation costs, and network payload sizes, leading to faster response times.
+
+### Common Mistakes
+*   Using double-precision float values for asset decimals and trade quantities, resulting in rounding errors.
+*   Directly mapping path parameters to database queries without regex validation, which opens up SQL/NoSQL injections or unnecessary DB queries.
+
 
 
