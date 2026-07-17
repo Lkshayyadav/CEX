@@ -278,5 +278,53 @@ This is a personal engineering notebook tracking the design decisions, architect
 ### Notes for Future
 *   The schema is now fully primed for core business logic. Next step is building matching engine mechanisms.
 
+---
+
+## Phase 2: Configuration & Database Connection Management
+
+### Tasks Completed
+*   Implemented a production-grade configuration validation system using Zod and dotenv.
+*   Enforced fail-fast checks at startup for critical environment variables (`NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `REDIS_URL`).
+*   Created a standard Prisma Client singleton module in `apps/backend/src/lib/prisma.ts`.
+*   Documented connection-pooling and hot-reloading gotchas in development.
+
+### What We Built
+*   `apps/backend/src/config/env.ts` and `apps/backend/src/config/index.ts`: The validation and typed configuration boundary.
+*   `apps/backend/src/lib/prisma.ts`: A shared database connection singleton preventing resource leaks.
+*   Updated `middleware/index.ts` to consume settings from the typed config instead of raw `process.env`.
+
+### Why We Built It
+*   **Fail-Fast Startup**: It is dangerous to run servers in production with misconfigured environment variables (like missing `JWT_SECRET` or incorrect database URL). Crashing immediately on startup makes configuration errors highly visible.
+*   **Prevent Connection Leakage**: In Node.js environment, hot reloads in development rebuild modules. If a new `PrismaClient` is instantiated on every module reload, the database connections are quickly exhausted. Storing the active connection pool in a global namespace resolves this issue.
+
+### Files Created/Updated
+*   `apps/backend/src/config/env.ts`
+*   `apps/backend/src/config/index.ts`
+*   `apps/backend/src/lib/prisma.ts`
+*   `apps/backend/src/middleware/index.ts`
+*   `apps/backend/.env`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend add zod`: Installs Zod library.
+*   `npx pnpm --filter @cex/backend run build`: Compiles TypeScript workspace to verify types.
+
+### Important Concepts
+*   **Prisma Client Lifecycle**: The Client handles connection pools and executes a Node-to-Rust native bridge. Because of this architecture, instantiation has a high process/memory overhead.
+*   **Zod Coercion**: Using `z.coerce.number()` to automatically cast string port values from `.env` files into correct TypeScript number types.
+
+### Architecture Decisions
+*   **Config Isolation**: Standardized on importing `config` via `import { config } from '../config'` to restrict `process.env` lookups to a single file, eliminating phantom dependency on OS variables across controllers or services.
+
+### Interview Questions
+1.  *What is a connection pool leak, and how does the global Prisma singleton pattern prevent it in local development environments?*
+    *   **Answer**: In local development, framework watchdogs reload the module graph on every save. In doing so, any instantiation of a database client at the module scope is run again, opening a new connection pool. The old connection pools remain open until garbage collected or timed out by the database server. A global singleton prevents this by caching the instantiated client on Node's `global` object, which persists across module invalidation reloads.
+2.  *Why use schema validation like Zod for environment variables instead of standard fallback checks?*
+    *   **Answer**: Fallback checks (e.g. `const port = process.env.PORT || 3000`) silently accept invalid values (like alphabetic strings) and defer failure until runtime. Zod validation parses, transforms, and validates variable formats at boot time, ensuring the application fails early and clearly if the configuration is invalid.
+
+### Common Mistakes
+*   Instantiating multiple `PrismaClient` objects inside individual repository or service files rather than importing a shared singleton instance, which leads to immediate connection limits being reached.
+*   Failing to coerce data types (like port number) when retrieving variables from `process.env`, leading to runtime type errors.
+
 
 

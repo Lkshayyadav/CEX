@@ -105,7 +105,10 @@ cp apps/backend/.env
 ```
 Inside `apps/backend/.env`, set:
 *   `PORT`: Port for the API server (default `3000`)
+*   `NODE_ENV`: Application environment (`development`, `production`, `test`)
 *   `DATABASE_URL`: PostgreSQL connection string
+*   `JWT_SECRET`: Secret key for signing JSON Web Tokens
+*   `REDIS_URL`: Redis server connection URL (e.g., `redis://localhost:6379`)
 
 ### 3. Build & Run
 To run the backend server in development mode:
