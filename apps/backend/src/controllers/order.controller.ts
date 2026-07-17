@@ -63,4 +63,21 @@ export const orderController = {
       next(error);
     }
   },
+
+  /**
+   * DELETE /api/v1/orders/:id
+   * Cancels an open order and unlocks the user's funds.
+   */
+  async cancelOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError('Access unauthorized. Please login first.', HTTP_STATUS.UNAUTHORIZED);
+      }
+      const { id } = req.params;
+      const data = await orderService.cancelOrder(id, req.user.id);
+      sendSuccessResponse(res, data, 'Order cancelled successfully', HTTP_STATUS.OK);
+    } catch (error) {
+      next(error);
+    }
+  },
 };

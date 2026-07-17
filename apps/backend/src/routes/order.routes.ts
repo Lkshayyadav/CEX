@@ -27,4 +27,10 @@ router.get('/', orderController.getOrders);
  */
 router.get('/:id', validateRequestParams(getOrderByIdSchema), orderController.getOrderById);
 
+/**
+ * DELETE /api/v1/orders/:id
+ * Cancels an open order and releases its locked funds.
+ */
+router.delete('/:id', validateRequestParams(getOrderByIdSchema), orderController.cancelOrder);
+
 export default router;

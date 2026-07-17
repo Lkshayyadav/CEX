@@ -30,6 +30,8 @@ export const orderRepository = {
           select: {
             id: true,
             symbol: true,
+            baseAssetId: true,
+            quoteAssetId: true,
           },
         },
       },
@@ -66,6 +68,8 @@ export const orderRepository = {
           select: {
             id: true,
             symbol: true,
+            baseAssetId: true,
+            quoteAssetId: true,
           },
         },
       },
@@ -118,6 +122,42 @@ export const orderRepository = {
           select: {
             id: true,
             symbol: true,
+            baseAssetId: true,
+            quoteAssetId: true,
+          },
+        },
+      },
+    });
+  },
+
+  /**
+   * Update the status of an order.
+   */
+  async updateOrderStatus(id: string, status: OrderStatus, tx?: any) {
+    const client = tx || prisma;
+    return client.order.update({
+      where: { id },
+      data: { status },
+      select: {
+        id: true,
+        userId: true,
+        marketId: true,
+        side: true,
+        type: true,
+        status: true,
+        price: true,
+        quantity: true,
+        filledQuantity: true,
+        remainingQuantity: true,
+        averageFillPrice: true,
+        createdAt: true,
+        updatedAt: true,
+        market: {
+          select: {
+            id: true,
+            symbol: true,
+            baseAssetId: true,
+            quoteAssetId: true,
           },
         },
       },

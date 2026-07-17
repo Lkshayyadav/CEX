@@ -655,5 +655,55 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Locking the wrong asset during orders (e.g. locking base asset during BUY orders or quote asset during SELL orders).
 *   Forgetting to execute the balance check and the order creation inside the same database transaction, opening a window for race conditions.
 
+---
+
+## Phase 3.5: Order Cancellation
+
+### Tasks Completed
+*   Implemented `unlockFunds` in `balanceRepository` to atomically credit a user's free balance and decrement their locked balance.
+*   Implemented `updateOrderStatus` in `orderRepository` to set an order's status to `CANCELLED` within a transaction context.
+*   Updated the select projections inside `orderRepository` (find/create actions) to include base and quote asset IDs inside the related `market` payload.
+*   Implemented `cancelOrder` in `orderService` enforcing ownership, status checks (only OPEN orders can be cancelled), calculation of quote assets to unlock for BUY orders, and execution of database mutations inside a Prisma transaction.
+*   Implemented the delete action inside `orderController` mapping to the cancel service call.
+*   Registered the `DELETE /api/v1/orders/:id` endpoint protected by JWT middleware.
+*   Verified that the TypeScript project builds successfully.
+
+### What We Built
+*   `apps/backend/src/repositories/balance.repository.ts`: Added `unlockFunds` to shift locked assets back to free assets atomically.
+*   `apps/backend/src/repositories/order.repository.ts`: Added `updateOrderStatus` and enriched selection queries with base/quote asset IDs.
+*   `apps/backend/src/services/order.service.ts`: Added `cancelOrder` logic computing releases (price * remainingQuantity for BUYs, remainingQuantity for SELLs) and transaction flow.
+*   `apps/backend/src/controllers/order.controller.ts`: Added `cancelOrder` controller action.
+*   `apps/backend/src/routes/order.routes.ts`: Mounted the DELETE route under `/orders/:id`.
+
+### Why We Built It
+*   **Balance Unlocking**: An order cancellation requires restoring the exact funds locked when the order was created. Doing this atomically prevents funds from becoming permanently frozen or vanishing from the user's ledger.
+*   **Status Isolation**: Restricting cancellation exclusively to `OPEN` orders prevents double-release conditions (e.g., trying to cancel a filled, cancelled, or rejected order).
+
+### Files Created/Updated
+*   `apps/backend/src/repositories/balance.repository.ts`
+*   `apps/backend/src/repositories/order.repository.ts`
+*   `apps/backend/src/services/order.service.ts`
+*   `apps/backend/src/controllers/order.controller.ts`
+*   `apps/backend/src/routes/order.routes.ts`
+*   `docs/engineering_notes.md`
+*   `README.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend run build`
+
+### Important Concepts
+*   **Remaining Quantity Releases**: During order cancellation, we only unlock the *remaining* unfilled amount (`remainingQuantity`). If the order was partially filled in a future execution phase, unlocking the initial quantity would lead to credit inflation.
+*   **Atomic Rollback Integrity**: Releasing balances and transitioning the order status to `CANCELLED` must execute as a single SQL unit to protect the exchange's ledger from structural corruption.
+
+### Interview Questions
+1.  *Why is it dangerous to release the initial order quantity instead of the remaining quantity during cancellation, and how does this affect ledger integrity?*
+    *   **Answer**: In a running exchange, an order can be partially matched and filled, reducing its `remainingQuantity` while leaving its status as `OPEN`. If you cancel the order and release the initial `quantity`, you credit the user with funds that were already spent on the partial fill, creating artificial assets in the database and causing severe insolvency.
+2.  *Why must order state transition and fund releasing occur in a single transaction block rather than in separate operations?*
+    *   **Answer**: If the order status is updated to `CANCELLED` but the balance release fails (or vice versa), the system enters an inconsistent state. The user either has cancelled orders with permanently trapped locked funds, or they get their funds back while the order remains open, allowing them to double-spend.
+
+### Common Mistakes
+*   Unlocking the base asset for BUY orders or the quote asset for SELL orders, mismatching exchange wallets.
+*   Failing to check that the order's current status is strictly `OPEN`, allowing users to cancel already-completed orders and get duplicate refunds.
+
 
 
