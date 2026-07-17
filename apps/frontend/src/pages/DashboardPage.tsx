@@ -79,7 +79,6 @@ export const DashboardPage: React.FC = () => {
     if (currentStats) {
       const parsedPrice = parseFloat(currentStats.lastPrice);
       setLastPrice(parsedPrice);
-      setPrice(parsedPrice.toString());
     }
     setRawBids([]);
     setRawAsks([]);

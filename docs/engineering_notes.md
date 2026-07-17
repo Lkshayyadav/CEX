@@ -1078,5 +1078,13 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Migrated WebSocket service initialization from automatic HTTP attachment to manual upgrade interception (`noServer: true` configuration in the `ws` package).
 *   Registered a custom HTTP `upgrade` listener inside `apps/backend/src/index.ts` to inspect incoming upgrade requests, matching client handshake headers against trusted HTTP origins before passing context to the `ws` server.
 
+---
+
+## Dashboard Blank Screen Fix
+
+### Tasks Completed
+*   Resolved a React runtime `ReferenceError` inside `DashboardPage.tsx` where an orphaned `setPrice()` call (from order-entry state refactoring) was triggered during the `useEffect` market symbol updates. Since `setPrice` was not defined in the scope, it crashed the component tree immediately after mounting, resulting in a black/blank screen.
+
+
 
 
