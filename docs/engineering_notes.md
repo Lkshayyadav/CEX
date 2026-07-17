@@ -704,6 +704,54 @@ This is a personal engineering notebook tracking the design decisions, architect
 ### Common Mistakes
 *   Unlocking the base asset for BUY orders or the quote asset for SELL orders, mismatching exchange wallets.
 *   Failing to check that the order's current status is strictly `OPEN`, allowing users to cancel already-completed orders and get duplicate refunds.
+---
 
+## Phase 5.0: Redis Asynchronous Communication Queue
 
+### Tasks Completed
+*   Integrated `ioredis` into `@cex/common`, `@cex/backend`, and `@cex/engine`.
+*   Implemented a graceful, type-safe Redis client singleton service in `packages/common/src/redis.ts`.
+*   Configured the Express backend `order.service.ts` to serialize new orders and push them into the `engine:orders` Redis list queue using `LPUSH` upon database creation and fund locking.
+*   Implemented a high-concurrency Redis consumer loop in `apps/engine/src/index.ts` utilizing `BRPOP` to continuously pop, deserialize, and route orders to the `MatchingEngine` for execution.
+*   Updated graceful shutdown signals in both backend and engine to cleanly close Redis connection sockets.
+
+### What We Built
+*   `packages/common/src/redis.ts`: Redis connection manager supporting auto-reconnection and blocking operations.
+*   `apps/backend/src/services/order.service.ts`: Updated order creation pipeline to queue orders asynchronously.
+*   `apps/engine/src/index.ts`: Thread-safe consumer engine loop polling from Redis.
+*   `apps/backend/src/index.ts`: Hooked Redis client disconnections into the API bootstrap shutdown handler.
+
+### Why We Built It
+*   **Asynchronous Decoupling**: Queueing orders through Redis decouples the backend API request-response cycle from the high-throughput matching engine execution loop.
+*   **Guaranteed Sequential Execution**: Using a FIFO list queue (`LPUSH` and `BRPOP`) guarantees that orders are processed by the matching engine in the exact order they were validated and stored in the database.
+*   **Reliability**: Using blocking pops (`BRPOP`) prevents CPU hot-looping and ensures orders are consumed immediately upon queue arrival without latency overhead.
+
+### Files Created/Updated
+*   `packages/common/package.json`
+*   `packages/common/src/index.ts`
+*   `packages/common/src/redis.ts`
+*   `apps/backend/package.json`
+*   `apps/backend/src/index.ts`
+*   `apps/backend/src/services/order.service.ts`
+*   `apps/engine/package.json`
+*   `apps/engine/src/index.ts`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm build`
+
+### Important Concepts
+*   **Blocking List Pops (BRPOP)**: Employs a blocking connection that waits for elements to arrive in the queue, preventing busy-waiting and conserving system resources.
+*   **Queue-Based Serialization**: Serializing complex order records into JSON strings allows cross-service execution without code coupling.
+*   **Graceful Sockets Disconnection**: Quitting Redis clients ensures open socket descriptors are closed, preventing resource leaks on shutdowns.
+
+### Interview Questions
+1.  *Why use a Redis List queue with LPUSH/BRPOP rather than Pub/Sub for routing orders to the matching engine?*
+    *   **Answer**: Redis Pub/Sub operates on a fire-and-forget broadcast mechanism where messages are lost if no subscriber is actively connected. Furthermore, Pub/Sub broadcasts to all active listeners, which would result in duplicate processing in a scaled consumer environment. A Redis List queue acts as a message broker where each order is processed exactly once by a single worker, and orders remain in the queue if the matching engine goes offline.
+2.  *Why is it important to set maxRetriesPerRequest to null in ioredis configuration when using blocking commands?*
+    *   **Answer**: By default, ioredis reconnects and throws an error if a request takes too long to respond. Blocking commands like `BRPOP` purposefully hold the request socket open until an item is available. Setting `maxRetriesPerRequest` to `null` tells ioredis not to terminate these intentionally long-lived connections.
+
+### Common Mistakes
+*   Pushed order objects before the database Prisma transaction completed, resulting in matching orders that did not exist in the database yet.
+*   Forgot to parse ISO strings back to `Date` objects in the engine consumer, causing runtime TypeScript type mismatches.
 

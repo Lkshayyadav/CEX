@@ -2,6 +2,7 @@ import pino from 'pino';
 import app from './app';
 import { config } from './config';
 import { prisma } from './lib';
+import { redisService } from '@cex/common';
 
 const logger = pino({
   level: config.env === 'production' ? 'info' : 'debug',
@@ -39,6 +40,8 @@ const gracefulShutdown = async (signal: string) => {
   try {
     await prisma.$disconnect();
     logger.info('[server]: Database connections closed.');
+    await redisService.disconnect();
+    logger.info('[server]: Redis connections closed.');
     process.exit(0);
   } catch (error) {
     logger.error({ err: error }, '[server]: Error during graceful shutdown');

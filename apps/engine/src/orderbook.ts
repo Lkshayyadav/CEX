@@ -17,7 +17,7 @@ export interface MatchResult {
   fills: BookFill[];
   makerUpdates: Order[];
 }
-
+ 
 function updateAveragePrice(
   oldFilledQtyStr: string,
   oldAvgPriceStr: string | null,

@@ -4,6 +4,8 @@ import { HTTP_STATUS } from '../constants';
 import { OrderDTO, CreateOrderInput } from '../types';
 import { prisma } from '../lib';
 import { Prisma } from '@prisma/client';
+import { redis } from '@cex/common';
+
 
 /**
  * Order Service
@@ -127,6 +129,24 @@ export const orderService = {
         tx
       );
     });
+
+    const orderPayload = {
+      id: created.id,
+      userId: created.userId,
+      marketId: created.marketId,
+      side: created.side,
+      type: created.type,
+      status: created.status,
+      price: created.price ? created.price.toString() : null,
+      quantity: created.quantity.toString(),
+      filledQuantity: created.filledQuantity.toString(),
+      remainingQuantity: created.remainingQuantity.toString(),
+      averageFillPrice: created.averageFillPrice ? created.averageFillPrice.toString() : null,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+    };
+
+    await redis.lpush('engine:orders', JSON.stringify(orderPayload));
 
     return {
       id: created.id,

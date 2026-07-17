@@ -17,9 +17,9 @@ We are currently in the **foundation phase**. The directory structure, workspace
 *   [x] Asset & Market Management APIs (`/assets`, `/markets`)
 *   [x] User Balance Management System & Simulated Ledger Deposits (`/balances`)
 *   [x] Order Placement, Cancellation & Balance Locking/Releasing (`/orders`)
-*   [ ] Shared math, database clients, and helpers (`packages/common`)
-*   [ ] Shared interface and type definitions (`packages/types`)
-*   [ ] High-performance Matching Engine (`apps/engine`)
+*   [x] Shared math, database clients, and helpers (`packages/common`)
+*   [x] Shared interface and type definitions (`packages/types`)
+*   [x] High-performance Matching Engine (`apps/engine`)
 *   [ ] Database migrations, schemas, and indexing
 *   [ ] Frontend Trading Dashboard and WebSockets (`apps/frontend`)
 
@@ -140,9 +140,9 @@ pnpm build
 *   [x] Implement Order Placement, Cancellation and Balance Releasing
 
 ### Phase 2: High-Performance Matching Engine
-*   [ ] Implement a stateful, memory-based limit order book (LOB).
-*   [ ] Integrate Redis/BullMQ to queue order requests from the API.
-*   [ ] Implement double-entry ledger bookkeeping for deposit, withdrawal, and trade settlements.
+*   [x] Implement a stateful, memory-based limit order book (LOB) with FIFO price-time priority.
+*   [x] Integrate Redis List Queue (LPUSH/BRPOP) to queue order requests from the API.
+*   [x] Implement double-entry ledger bookkeeping for trade settlements.
 
 ### Phase 3: Real-Time & WebSockets
 *   [ ] Set up Socket.io/WS feeds in the backend.
