@@ -1,3 +1,4 @@
+import './config';
 import { matchingEngine } from './engine';
 import { redis, redisService } from '@cex/common';
 import { Order } from '@cex/types';
@@ -34,17 +35,37 @@ async function startConsumer() {
       }
       
       const [_queue, payload] = result;
-      logger.info(`Popped order payload from queue`);
+      logger.info(`Popped command payload from queue`);
       
-      const orderData = JSON.parse(payload);
-      const order: Order = {
-        ...orderData,
-        createdAt: new Date(orderData.createdAt),
-        updatedAt: new Date(orderData.updatedAt),
-      };
-
-      const matchResult = await matchingEngine.processOrder(order);
-      logger.info(`Successfully processed order ${order.id}. Fills generated: ${matchResult.fills.length}`);
+      const command = JSON.parse(payload);
+      if (command && command.type === 'CREATE_ORDER') {
+        const orderData = command.data;
+        const order: Order = {
+          ...orderData,
+          createdAt: new Date(orderData.createdAt),
+          updatedAt: new Date(orderData.updatedAt),
+        };
+        const matchResult = await matchingEngine.processOrder(order);
+        logger.info(`Successfully processed CREATE_ORDER ${order.id}. Fills generated: ${matchResult.fills.length}`);
+      } else if (command && command.type === 'CANCEL_ORDER') {
+        const { orderId, userId, marketSymbol } = command.data;
+        const cancelledOrder = await matchingEngine.cancelOrder(orderId, userId, marketSymbol);
+        if (cancelledOrder) {
+          logger.info(`Successfully processed CANCEL_ORDER ${orderId}.`);
+        } else {
+          logger.warn(`CANCEL_ORDER failed for order ${orderId}. Order not found in memory book.`);
+        }
+      } else {
+        // Fallback for legacy raw order payloads
+        const orderData = command;
+        const order: Order = {
+          ...orderData,
+          createdAt: new Date(orderData.createdAt),
+          updatedAt: new Date(orderData.updatedAt),
+        };
+        const matchResult = await matchingEngine.processOrder(order);
+        logger.info(`Successfully processed legacy order ${order.id}. Fills generated: ${matchResult.fills.length}`);
+      }
     } catch (err) {
       logger.error(err, 'Error encountered in Redis consumer loop');
       // Wait to prevent rapid hot looping if error is persistent
@@ -59,3 +80,6 @@ startConsumer().catch((err) => {
   logger.error(err, 'Failed to start matching engine consumer');
   process.exit(1);
 });
+// Trigger watch reload.
+
+// force reload 1784310514720

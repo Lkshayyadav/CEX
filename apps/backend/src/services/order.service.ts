@@ -5,6 +5,7 @@ import { OrderDTO, CreateOrderInput } from '../types';
 import { prisma } from '../lib';
 import { Prisma } from '@prisma/client';
 import { redis } from '@cex/common';
+import crypto from 'crypto';
 
 
 /**
@@ -78,11 +79,9 @@ export const orderService = {
     let amountToLock: Prisma.Decimal;
 
     if (input.side === 'SELL') {
-      // Selling base asset: verify and lock base asset quantity
       assetIdToLock = market.baseAssetId;
       amountToLock = new Prisma.Decimal(input.quantity);
     } else {
-      // Buying base asset: verify and lock quote asset funds (price * quantity)
       assetIdToLock = market.quoteAssetId;
       
       const priceStr = input.price || (input.type === 'MARKET' ? '0' : undefined);
@@ -98,71 +97,49 @@ export const orderService = {
       amountToLock = price.mul(quantity);
     }
 
-    // 3. Execute balance check, locking, and order insertion in a single transaction
-    const created = await prisma.$transaction(async (tx) => {
-      let balance = await balanceRepository.findBalanceByUserAndAssetId(userId, assetIdToLock, tx);
+    // Read-only balance check in backend to return quick error feedback
+    const balance = await balanceRepository.findBalanceByUserAndAssetId(userId, assetIdToLock);
+    if (!balance || balance.free.lt(amountToLock)) {
+      throw new AppError('Insufficient free balance to place this order', HTTP_STATUS.BAD_REQUEST);
+    }
 
-      if (!balance) {
-        // Initialize balance record if it doesn't exist
-        balance = await balanceRepository.createBalance(userId, assetIdToLock, '0', tx);
-      }
-
-      // Check if user has sufficient free balance
-      if (balance.free.lt(amountToLock)) {
-        throw new AppError('Insufficient free balance to place this order', HTTP_STATUS.BAD_REQUEST);
-      }
-
-      // Atomically decrement free and increment locked
-      await balanceRepository.lockFunds(userId, assetIdToLock, amountToLock.toString(), tx);
-
-      // Insert order with OPEN status
-      return orderRepository.createOrder(
-        {
-          userId,
-          marketId: market.id,
-          side: input.side,
-          type: input.type,
-          price: input.price,
-          quantity: input.quantity,
-          status: 'OPEN',
-        },
-        tx
-      );
-    });
+    const orderId = crypto.randomUUID();
+    const now = new Date();
 
     const orderPayload = {
-      id: created.id,
-      userId: created.userId,
-      marketId: created.marketId,
-      side: created.side,
-      type: created.type,
-      status: created.status,
-      price: created.price ? created.price.toString() : null,
-      quantity: created.quantity.toString(),
-      filledQuantity: created.filledQuantity.toString(),
-      remainingQuantity: created.remainingQuantity.toString(),
-      averageFillPrice: created.averageFillPrice ? created.averageFillPrice.toString() : null,
-      createdAt: created.createdAt,
-      updatedAt: created.updatedAt,
+      id: orderId,
+      userId,
+      marketId: market.id,
+      side: input.side,
+      type: input.type,
+      status: 'PENDING' as any,
+      price: input.price || null,
+      quantity: input.quantity,
+      filledQuantity: '0',
+      remainingQuantity: input.quantity,
+      averageFillPrice: null,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     };
 
-    await redis.lpush('engine:orders', JSON.stringify(orderPayload));
+    const command = {
+      type: 'CREATE_ORDER',
+      data: orderPayload,
+    };
+
+    // Simply push to engine:orders Redis queue
+    await redis.lpush('engine:orders', JSON.stringify(command));
 
     return {
-      id: created.id,
-      userId: created.userId,
-      marketId: created.marketId,
-      side: created.side,
-      type: created.type,
-      status: created.status,
-      price: created.price ? created.price.toString() : null,
-      quantity: created.quantity.toString(),
-      filledQuantity: created.filledQuantity.toString(),
-      remainingQuantity: created.remainingQuantity.toString(),
-      averageFillPrice: created.averageFillPrice ? created.averageFillPrice.toString() : null,
-      createdAt: created.createdAt,
-      updatedAt: created.updatedAt,
-      market: created.market,
+      ...orderPayload,
+      createdAt: now,
+      updatedAt: now,
+      market: {
+        id: market.id,
+        symbol: market.symbol,
+        baseAssetId: market.baseAssetId,
+        quoteAssetId: market.quoteAssetId,
+      } as any,
     };
   },
 
@@ -177,55 +154,41 @@ export const orderService = {
       throw new AppError(`Order with ID '${id}' not found`, HTTP_STATUS.NOT_FOUND);
     }
 
-    // 2. Validate current status: only OPEN orders can be cancelled
-    if (order.status !== 'OPEN') {
+    // 2. Validate current status: only open or pending orders can be cancelled
+    if (order.status !== 'OPEN' && order.status !== 'PARTIALLY_FILLED' && order.status !== 'PENDING') {
       throw new AppError(
-        `Only OPEN orders can be cancelled. Current status is ${order.status}.`,
+        `Only open or pending orders can be cancelled. Current status is ${order.status}.`,
         HTTP_STATUS.BAD_REQUEST
       );
     }
 
-    // 3. Determine the asset to unlock and the exact amount to release
-    let assetIdToUnlock: string;
-    let amountToUnlock: Prisma.Decimal;
+    const command = {
+      type: 'CANCEL_ORDER',
+      data: {
+        orderId: id,
+        userId,
+        marketSymbol: order.market.symbol,
+      },
+    };
 
-    if (order.side === 'SELL') {
-      // Selling base asset: unlock the remaining quantity of base asset
-      assetIdToUnlock = order.market.baseAssetId;
-      amountToUnlock = order.remainingQuantity;
-    } else {
-      // Buying: unlock quote asset (price * remainingQuantity)
-      assetIdToUnlock = order.market.quoteAssetId;
-      if (!order.price) {
-        throw new AppError('Cannot calculate unlock funds for BUY order without price', HTTP_STATUS.BAD_REQUEST);
-      }
-      amountToUnlock = order.price.mul(order.remainingQuantity);
-    }
-
-    // 4. Perform database updates in a single transaction
-    const updated = await prisma.$transaction(async (tx) => {
-      // Release locked funds (decrement locked, increment free)
-      await balanceRepository.unlockFunds(userId, assetIdToUnlock, amountToUnlock.toString(), tx);
-
-      // Update order status to CANCELLED
-      return orderRepository.updateOrderStatus(id, 'CANCELLED', tx);
-    });
+    // Simply submit cancellation command to Redis
+    await redis.lpush('engine:orders', JSON.stringify(command));
 
     return {
-      id: updated.id,
-      userId: updated.userId,
-      marketId: updated.marketId,
-      side: updated.side,
-      type: updated.type,
-      status: updated.status,
-      price: updated.price ? updated.price.toString() : null,
-      quantity: updated.quantity.toString(),
-      filledQuantity: updated.filledQuantity.toString(),
-      remainingQuantity: updated.remainingQuantity.toString(),
-      averageFillPrice: updated.averageFillPrice ? updated.averageFillPrice.toString() : null,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-      market: updated.market,
+      id: order.id,
+      userId: order.userId,
+      marketId: order.marketId,
+      side: order.side,
+      type: order.type,
+      status: 'PENDING',
+      price: order.price ? order.price.toString() : null,
+      quantity: order.quantity.toString(),
+      filledQuantity: order.filledQuantity.toString(),
+      remainingQuantity: order.remainingQuantity.toString(),
+      averageFillPrice: order.averageFillPrice ? order.averageFillPrice.toString() : null,
+      createdAt: order.createdAt,
+      updatedAt: new Date(),
+      market: order.market,
     };
   },
 };

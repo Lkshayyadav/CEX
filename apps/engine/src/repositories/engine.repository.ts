@@ -69,6 +69,102 @@ export const engineRepository = {
     makerUpdates: Order[]
   ) {
     return prisma.$transaction(async (tx) => {
+      // Find or create taker order
+      let existingTakerOrder = await tx.order.findUnique({
+        where: { id: takerOrder.id }
+      });
+
+      if (!existingTakerOrder) {
+        // Taker order is not in DB, so we must lock funds and create it
+        let assetIdToLock: string;
+        let amountToLock: Prisma.Decimal;
+
+        if (takerOrder.side === 'SELL') {
+          assetIdToLock = baseAssetId;
+          amountToLock = new Prisma.Decimal(takerOrder.quantity);
+        } else {
+          assetIdToLock = quoteAssetId;
+          const priceStr = takerOrder.price;
+          if (!priceStr || parseFloat(priceStr) <= 0) {
+            throw new Error('A positive price is required to calculate required funds for BUY orders');
+          }
+          amountToLock = new Prisma.Decimal(priceStr).mul(new Prisma.Decimal(takerOrder.quantity));
+        }
+
+        let balance = await tx.balance.findUnique({
+          where: { userId_assetId: { userId: takerOrder.userId, assetId: assetIdToLock } }
+        });
+
+        if (!balance) {
+          balance = await tx.balance.create({
+            data: {
+              userId: takerOrder.userId,
+              assetId: assetIdToLock,
+              free: new Prisma.Decimal('0'),
+              locked: new Prisma.Decimal('0'),
+            }
+          });
+        }
+
+        if (balance.free.lt(amountToLock)) {
+          throw new Error('Insufficient free balance to place this order');
+        }
+
+        // Lock funds
+        await tx.balance.update({
+          where: { id: balance.id },
+          data: {
+            free: { decrement: amountToLock },
+            locked: { increment: amountToLock },
+          }
+        });
+
+        // Create the order with status OPEN
+        existingTakerOrder = await tx.order.create({
+          data: {
+            id: takerOrder.id,
+            userId: takerOrder.userId,
+            marketId: marketId,
+            side: takerOrder.side,
+            type: takerOrder.type,
+            price: takerOrder.price ? new Prisma.Decimal(takerOrder.price) : null,
+            quantity: new Prisma.Decimal(takerOrder.quantity),
+            filledQuantity: new Prisma.Decimal(0),
+            remainingQuantity: new Prisma.Decimal(takerOrder.quantity),
+            status: 'OPEN',
+            createdAt: takerOrder.createdAt,
+            updatedAt: takerOrder.updatedAt,
+          }
+        });
+      }
+
+      // If order is cancelled, unlock the remaining funds
+      if (takerOrder.status === 'CANCELLED') {
+        let assetIdToUnlock: string;
+        let amountToUnlock: Prisma.Decimal;
+
+        if (takerOrder.side === 'SELL') {
+          assetIdToUnlock = baseAssetId;
+          amountToUnlock = new Prisma.Decimal(takerOrder.remainingQuantity);
+        } else {
+          assetIdToUnlock = quoteAssetId;
+          if (!takerOrder.price) {
+            throw new Error('Cannot calculate unlock funds for BUY order without price');
+          }
+          amountToUnlock = new Prisma.Decimal(takerOrder.price).mul(new Prisma.Decimal(takerOrder.remainingQuantity));
+        }
+
+        await tx.balance.update({
+          where: {
+            userId_assetId: { userId: takerOrder.userId, assetId: assetIdToUnlock }
+          },
+          data: {
+            locked: { decrement: amountToUnlock },
+            free: { increment: amountToUnlock },
+          }
+        });
+      }
+
       // 1. Record Fill details
       for (const fill of fills) {
         await tx.fill.create({
@@ -253,6 +349,30 @@ export const engineRepository = {
           averageFillPrice: takerOrder.averageFillPrice ? new Prisma.Decimal(takerOrder.averageFillPrice) : null,
         },
       });
+    }, {
+      timeout: 30000
+    });
+  },
+
+  /**
+   * Persists an order rejected due to insufficient funds.
+   */
+  async rejectOrder(marketId: string, order: Order) {
+    return prisma.order.create({
+      data: {
+        id: order.id,
+        userId: order.userId,
+        marketId: marketId,
+        side: order.side,
+        type: order.type,
+        price: order.price ? new Prisma.Decimal(order.price) : null,
+        quantity: new Prisma.Decimal(order.quantity),
+        filledQuantity: new Prisma.Decimal(0),
+        remainingQuantity: new Prisma.Decimal(order.quantity),
+        status: 'REJECTED',
+        createdAt: order.createdAt,
+        updatedAt: new Date(),
+      }
     });
   },
 };

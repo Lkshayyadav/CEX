@@ -63,6 +63,18 @@ export class MatchingEngine {
 
     this.initialized = true;
     logger.info(`Matching engine initialized. Loaded ${openOrders.length} open orders.`);
+
+    // Write initial depth snapshots to Redis
+    for (const [symbol, book] of this.orderBooks.entries()) {
+      const channelSymbol = symbol.replace('/', '_');
+      const depthPayload = {
+        symbol: symbol,
+        bids: book.getDepth(20).bids,
+        asks: book.getDepth(20).asks,
+        timestamp: new Date().getTime(),
+      };
+      await redis.set(`market:${channelSymbol}:depth:snapshot`, JSON.stringify(depthPayload));
+    }
   }
 
   /**
@@ -85,14 +97,17 @@ export class MatchingEngine {
 
     logger.info(`Processing ${order.side} ${order.type} order for ${market.symbol} (Qty: ${order.quantity})`);
 
-    // Process matching in-memory
-    const matchResult = book.addOrder(order);
+    // Snapshot orderbook state for transactional integrity
+    const bidsSnapshot = book.getBids().map((o) => ({ ...o }));
+    const asksSnapshot = book.getAsks().map((o) => ({ ...o }));
 
     const channelSymbol = market.symbol.replace('/', '_');
 
-    // If matches occurred, persist fills and settle balances
-    if (matchResult.fills.length > 0) {
-      logger.info(`Match found! Generating ${matchResult.fills.length} fill(s)`);
+    try {
+      // Process matching in-memory
+      const matchResult = book.addOrder(order);
+
+      // Always settle and persist order state to database
       await engineRepository.settleTrades(
         market.id,
         market.baseAssetId,
@@ -102,31 +117,95 @@ export class MatchingEngine {
         matchResult.makerUpdates
       );
 
-      // Publish trade fills to Redis Pub/Sub
-      const tradesPayload = {
-        symbol: market.symbol,
-        trades: matchResult.fills.map((f) => ({
-          price: f.price,
-          quantity: f.quantity,
-          tradeId: f.tradeId,
-          makerOrderId: f.makerOrderId,
-          takerOrderId: f.takerOrderId,
-          timestamp: new Date().getTime(),
-        })),
+      // If matches occurred, publish trade fills to Redis Pub/Sub
+      if (matchResult.fills.length > 0) {
+        logger.info(`Match found! Generating ${matchResult.fills.length} fill(s)`);
+        const tradesPayload = {
+          symbol: market.symbol,
+          trades: matchResult.fills.map((f) => ({
+            price: f.price,
+            quantity: f.quantity,
+            tradeId: f.tradeId,
+            makerOrderId: f.makerOrderId,
+            takerOrderId: f.takerOrderId,
+            side: matchResult.order.side,
+            timestamp: new Date().getTime(),
+          })),
+        };
+        await redis.publish(`market:${channelSymbol}:trades`, JSON.stringify(tradesPayload));
+      }
+
+      // Publish standard engine events to Redis Pub/Sub channel
+      const eventType = matchResult.fills.length > 0 ? 'ORDER_MATCHED' : 'ORDER_PLACED';
+      const orderEventPayload = {
+        type: eventType,
+        data: {
+          order: matchResult.order,
+          fills: matchResult.fills,
+          makerUpdates: matchResult.makerUpdates,
+        },
       };
-      await redis.publish(`market:${channelSymbol}:trades`, JSON.stringify(tradesPayload));
+      await redis.publish(`market:${channelSymbol}:orders`, JSON.stringify(orderEventPayload));
+
+      // Publish depth update to Redis Pub/Sub after any order processing and save snapshot
+      const depthPayload = {
+        symbol: market.symbol,
+        bids: book.getDepth(20).bids,
+        asks: book.getDepth(20).asks,
+        timestamp: new Date().getTime(),
+      };
+      await redis.set(`market:${channelSymbol}:depth:snapshot`, JSON.stringify(depthPayload));
+      await redis.publish(`market:${channelSymbol}:depth`, JSON.stringify(depthPayload));
+
+      return matchResult;
+    } catch (err) {
+      // Rollback memory state
+      book.restoreState(bidsSnapshot, asksSnapshot);
+
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes('Insufficient free balance')) {
+        logger.warn(`Order ${order.id} rejected: Insufficient free balance.`);
+
+        // Persist order as REJECTED in database
+        try {
+          await engineRepository.rejectOrder(market.id, order);
+        } catch (dbErr) {
+          logger.error(dbErr, `Failed to persist order rejection for ${order.id}`);
+        }
+
+        // Publish rejection event to Redis Pub/Sub
+        const orderEventPayload = {
+          type: 'ORDER_REJECTED',
+          data: {
+            order: {
+              ...order,
+              status: 'REJECTED' as const,
+              filledQuantity: '0',
+              remainingQuantity: order.quantity,
+              updatedAt: new Date(),
+            },
+            fills: [],
+            makerUpdates: [],
+          },
+        };
+        await redis.publish(`market:${channelSymbol}:orders`, JSON.stringify(orderEventPayload));
+
+        return {
+          order: {
+            ...order,
+            status: 'REJECTED',
+            filledQuantity: '0',
+            remainingQuantity: order.quantity,
+            updatedAt: new Date(),
+          },
+          fills: [],
+          makerUpdates: [],
+        };
+      }
+
+      // Rethrow other errors
+      throw err;
     }
-
-    // Publish depth update to Redis Pub/Sub after any order processing
-    const depthPayload = {
-      symbol: market.symbol,
-      bids: book.getDepth(20).bids,
-      asks: book.getDepth(20).asks,
-      timestamp: new Date().getTime(),
-    };
-    await redis.publish(`market:${channelSymbol}:depth`, JSON.stringify(depthPayload));
-
-    return matchResult;
   }
 
   /**
@@ -146,6 +225,9 @@ export class MatchingEngine {
       throw new Error(`OrderBook for symbol '${marketSymbol}' not found`);
     }
 
+    const bidsSnapshot = book.getBids().map((o) => ({ ...o }));
+    const asksSnapshot = book.getAsks().map((o) => ({ ...o }));
+
     // Cancel order in memory
     const cancelledOrder = book.cancelOrder(orderId);
     if (!cancelledOrder) {
@@ -155,32 +237,50 @@ export class MatchingEngine {
     // Determine lock asset and amount to refund
     const market = Array.from(this.markets.values()).find((m) => m.symbol === marketSymbol);
     if (!market) {
+      book.restoreState(bidsSnapshot, asksSnapshot);
       throw new Error(`Market for symbol '${marketSymbol}' not found`);
     }
 
     logger.info(`Order ${orderId} cancelled in-memory. Persisting cancellation and releasing funds...`);
 
-    // Settle database balance release and order status update
-    await engineRepository.settleTrades(
-      market.id,
-      market.baseAssetId,
-      market.quoteAssetId,
-      cancelledOrder,
-      [], // no fills
-      []  // no maker updates
-    );
+    try {
+      // Settle database balance release and order status update
+      await engineRepository.settleTrades(
+        market.id,
+        market.baseAssetId,
+        market.quoteAssetId,
+        cancelledOrder,
+        [], // no fills
+        []  // no maker updates
+      );
 
-    // Publish depth update to Redis Pub/Sub after cancellation
-    const channelSymbol = marketSymbol.replace('/', '_');
-    const depthPayload = {
-      symbol: marketSymbol,
-      bids: book.getDepth(20).bids,
-      asks: book.getDepth(20).asks,
-      timestamp: new Date().getTime(),
-    };
-    await redis.publish(`market:${channelSymbol}:depth`, JSON.stringify(depthPayload));
+      const channelSymbol = marketSymbol.replace('/', '_');
 
-    return cancelledOrder;
+      // Publish standard cancel event to Redis Pub/Sub channel
+      const cancelEventPayload = {
+        type: 'ORDER_CANCELLED',
+        data: {
+          order: cancelledOrder,
+        },
+      };
+      await redis.publish(`market:${channelSymbol}:orders`, JSON.stringify(cancelEventPayload));
+
+      // Publish depth update to Redis Pub/Sub after cancellation and save snapshot
+      const depthPayload = {
+        symbol: marketSymbol,
+        bids: book.getDepth(20).bids,
+        asks: book.getDepth(20).asks,
+        timestamp: new Date().getTime(),
+      };
+      await redis.set(`market:${channelSymbol}:depth:snapshot`, JSON.stringify(depthPayload));
+      await redis.publish(`market:${channelSymbol}:depth`, JSON.stringify(depthPayload));
+
+      return cancelledOrder;
+    } catch (err) {
+      // Rollback memory state
+      book.restoreState(bidsSnapshot, asksSnapshot);
+      throw err;
+    }
   }
 
   // Debug methods

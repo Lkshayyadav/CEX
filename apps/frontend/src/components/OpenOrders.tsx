@@ -16,12 +16,69 @@ interface OrdersResponse {
   data: Order[];
 }
 
-export const OpenOrders: React.FC = () => {
-  const { isLoggedIn } = useAuth();
+import { useSubscription } from '../context/WebSocketContext';
+
+interface OpenOrdersProps {
+  marketSymbol?: string;
+  refreshTrigger?: number;
+}
+
+export const OpenOrders: React.FC<OpenOrdersProps> = ({ marketSymbol, refreshTrigger }) => {
+  const { user, isLoggedIn } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
+
+  const symbolKey = marketSymbol ? marketSymbol.replace('/', '_') : null;
+
+  useSubscription(symbolKey ? `order:${symbolKey}` : null, (event: any) => {
+    const { type, data } = event;
+    if (!type || !data || !user) return;
+
+    const handleSingleOrderUpdate = (order: any) => {
+      if (order.userId !== user.id) return;
+
+      const formattedOrder: Order = {
+        ...order,
+        createdAt: new Date(order.createdAt),
+        updatedAt: new Date(order.updatedAt),
+      };
+
+      if (type === 'ORDER_PLACED') {
+        setOrders((prev) => {
+          if (prev.some((o) => o.id === formattedOrder.id)) return prev;
+          return [formattedOrder, ...prev];
+        });
+      } else if (type === 'ORDER_CANCELLED') {
+        setOrders((prev) => prev.filter((o) => o.id !== formattedOrder.id));
+      } else if (type === 'ORDER_MATCHED') {
+        setOrders((prev) => {
+          if (formattedOrder.status === 'FILLED') {
+            return prev.filter((o) => o.id !== formattedOrder.id);
+          } else {
+            const idx = prev.findIndex((o) => o.id === formattedOrder.id);
+            if (idx !== -1) {
+              const next = [...prev];
+              next[idx] = formattedOrder;
+              return next;
+            } else {
+              return [formattedOrder, ...prev];
+            }
+          }
+        });
+      }
+    };
+
+    if (data.order) {
+      handleSingleOrderUpdate(data.order);
+    }
+    if (Array.isArray(data.makerUpdates)) {
+      data.makerUpdates.forEach((makerOrder: any) => {
+        handleSingleOrderUpdate(makerOrder);
+      });
+    }
+  });
 
   const fetchOrders = useCallback(async () => {
     if (!isLoggedIn) return;
@@ -30,7 +87,8 @@ export const OpenOrders: React.FC = () => {
     try {
       const res = await api.get<OrdersResponse>('/orders');
       if (res.data.success) {
-        setOrders(res.data.data.filter((o) => o.status === 'OPEN'));
+        // Keep both OPEN and PARTIALLY_FILLED orders
+        setOrders(res.data.data.filter((o) => o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED'));
       }
     } catch (err) {
       const axiosErr = err as AxiosError<BackendError>;
@@ -44,7 +102,7 @@ export const OpenOrders: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+  }, [fetchOrders, refreshTrigger]);
 
   const handleCancel = async (orderId: string) => {
     setCancellingIds((prev) => new Set(prev).add(orderId));

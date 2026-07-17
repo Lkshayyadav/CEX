@@ -1084,7 +1084,5 @@ This is a personal engineering notebook tracking the design decisions, architect
 
 ### Tasks Completed
 *   Resolved a React runtime `ReferenceError` inside `DashboardPage.tsx` where an orphaned `setPrice()` call (from order-entry state refactoring) was triggered during the `useEffect` market symbol updates. Since `setPrice` was not defined in the scope, it crashed the component tree immediately after mounting, resulting in a black/blank screen.
-
-
-
+*   Upgraded `CandlestickChart.tsx` instantiation logic to comply with the `lightweight-charts` version `^5.2.0` specification. Replaced the deprecated `chart.addCandlestickSeries()` method with the unified `chart.addSeries(CandlestickSeries, ...)` signature, fixing a runtime `TypeError` that crashed the dashboard component.
 

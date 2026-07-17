@@ -33,6 +33,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
 
     next();
   } catch (error) {
+    console.error('requireAuth token verification error:', error);
     // 4. Suppress internal verification errors (e.g. signature mismatch, expired token details)
     next(new AppError('Access unauthorized. Invalid or expired token.', HTTP_STATUS.UNAUTHORIZED));
   }

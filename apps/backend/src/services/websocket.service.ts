@@ -95,15 +95,23 @@ class WebSocketManager {
         logger.error(err, 'Failed to subscribe to Redis pattern market:*:*');
       });
 
-    // Handle incoming pattern messages from Redis
     redisSub.on('pmessage', (_pattern, channel, message) => {
       const parts = channel.split(':');
       if (parts.length === 3) {
         const symbol = parts[1]; // e.g. BTC_USDT
         const type = parts[2];   // e.g. trades or depth
 
-        // Standardize channel param names: trade:BTC_USDT or depth:BTC_USDT
-        const streamParam = type === 'trades' ? `trade:${symbol}` : `depth:${symbol}`;
+        // Standardize channel param names: trade:BTC_USDT, depth:BTC_USDT, or order:BTC_USDT
+        let streamParam: string;
+        if (type === 'trades') {
+          streamParam = `trade:${symbol}`;
+        } else if (type === 'depth') {
+          streamParam = `depth:${symbol}`;
+        } else if (type === 'orders') {
+          streamParam = `order:${symbol}`;
+        } else {
+          streamParam = `${type}:${symbol}`;
+        }
 
         const payload = JSON.parse(message);
 

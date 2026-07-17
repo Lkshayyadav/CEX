@@ -390,6 +390,12 @@ export class OrderBook {
     return [...this.asks];
   }
 
+  public restoreState(bids: Order[], asks: Order[]): void {
+    this.bids = bids;
+    this.asks = asks;
+  }
+
+
   /**
    * Get the aggregated depth of the order book.
    */

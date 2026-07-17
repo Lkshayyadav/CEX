@@ -157,3 +157,7 @@ export const useWebSocketStream = (stream: string | null, onMessage: MessageCall
     };
   }, [stream, ws]);
 };
+
+export const useSubscription = (stream: string | null, onMessage: MessageCallback) => {
+  return useWebSocketStream(stream, onMessage);
+};

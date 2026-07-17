@@ -10,12 +10,12 @@ echo "============================================="
 # 1. Kill any existing processes on port 3000 and 5173
 echo "Checking for active services on ports 3000 or 5173..."
 if command -v lsof >/dev/null 2>&1; then
-  PID_3000=$(lsof -t -i:3000)
+  PID_3000=$(lsof -t -i:3000 || true)
   if [ -n "$PID_3000" ]; then
     echo "Killing existing process on port 3000 (PIDs: $PID_3000)..."
     kill -9 $PID_3000 2>/dev/null || true
   fi
-  PID_5173=$(lsof -t -i:5173)
+  PID_5173=$(lsof -t -i:5173 || true)
   if [ -n "$PID_5173" ]; then
     echo "Killing existing process on port 5173 (PIDs: $PID_5173)..."
     kill -9 $PID_5173 2>/dev/null || true
@@ -30,15 +30,15 @@ fi
 
 # 2. Boot processes in the background
 echo "Starting Backend service..."
-npx pnpm --filter @cex/backend dev > /dev/null 2>&1 &
+npx pnpm --filter @cex/backend dev > backend.log 2>&1 &
 BACKEND_PID=$!
 
 echo "Starting Engine service..."
-npx pnpm --filter @cex/engine dev > /dev/null 2>&1 &
+npx pnpm --filter @cex/engine dev > engine.log 2>&1 &
 ENGINE_PID=$!
 
 echo "Starting Frontend service..."
-npx pnpm --filter @cex/frontend dev > /dev/null 2>&1 &
+npx pnpm --filter @cex/frontend dev > frontend.log 2>&1 &
 FRONTEND_PID=$!
 
 # Function to clean up background processes on script exit

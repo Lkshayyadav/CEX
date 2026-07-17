@@ -3,12 +3,14 @@ import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../context/WebSocketContext';
 import type { OrderSide, OrderType, Order } from '@cex/types';
 import type { AxiosError } from 'axios';
 
 interface OrderEntryProps {
   marketSymbol: string; // e.g. "BTC/USDT"
   lastPrice: number;
+  onOrderPlaced?: () => void;
 }
 
 interface BackendError {
@@ -25,7 +27,7 @@ interface CreateOrderResponse {
   data: Order;
 }
 
-export const OrderEntry: React.FC<OrderEntryProps> = ({ marketSymbol, lastPrice }) => {
+export const OrderEntry: React.FC<OrderEntryProps> = ({ marketSymbol, lastPrice, onOrderPlaced }) => {
   const { isLoggedIn } = useAuth();
 
   const [side, setSide] = useState<OrderSide>('BUY');
@@ -33,6 +35,30 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ marketSymbol, lastPrice 
   const [price, setPrice] = useState<string>(lastPrice.toString());
   const [quantity, setQuantity] = useState<string>('0.10');
   const [loading, setLoading] = useState(false);
+  const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(new Set());
+
+  // WebSocket Subscription to check order status updates from engine
+  const symbolKey = marketSymbol.replace('/', '_');
+  useSubscription(`order:${symbolKey}`, (event: any) => {
+    const { type: eventType, data } = event;
+    if (!eventType || !data || !data.order) return;
+    const orderId = data.order.id;
+
+    if (pendingOrderIds.has(orderId)) {
+      setPendingOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
+      toast.success(
+        `Engine Confirmed: ${data.order.side} ${data.order.type} order is ${data.order.status}!`,
+        { id: orderId, duration: 4000 }
+      );
+      if (onOrderPlaced) {
+        onOrderPlaced();
+      }
+    }
+  });
 
   // Derive base/quote from "BTC/USDT"
   const [base, quote] = marketSymbol.split('/');
@@ -69,10 +95,13 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ marketSymbol, lastPrice 
 
       if (response.data.success) {
         const order = response.data.data;
-        toast.success(
-          `${side} order placed! Status: ${order.status}`,
-          { duration: 4000, icon: side === 'BUY' ? '🟢' : '🔴' }
-        );
+        // Add to pending set
+        setPendingOrderIds((prev) => {
+          const next = new Set(prev);
+          next.add(order.id);
+          return next;
+        });
+        toast.loading('Awaiting Matching Engine settlement...', { id: order.id });
         // Clear quantity after success; keep price for quick re-orders
         setQuantity('0.10');
       }
@@ -202,7 +231,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ marketSymbol, lastPrice 
         <div className="pt-1 mt-auto">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || pendingOrderIds.size > 0}
             className={`w-full py-3 rounded-xl text-xs font-black transition-all text-center cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 ${
               side === 'BUY'
                 ? 'bg-brand-green text-dark-bg hover:opacity-90'
@@ -212,7 +241,12 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ marketSymbol, lastPrice 
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Submitting...</span>
+                <span>Submitting to Queue...</span>
+              </>
+            ) : pendingOrderIds.size > 0 ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-dark-bg" />
+                <span>Settling on Engine...</span>
               </>
             ) : (
               <span>
