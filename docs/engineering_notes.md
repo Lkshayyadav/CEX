@@ -1038,3 +1038,23 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   **Health-checked ordering**: `condition: service_healthy` prevents app containers starting before their dependencies are ready.
 *   **Nginx SPA routing**: `try_files $uri $uri/ /index.html` ensures React Router deep links don't 404.
 *   **Named volumes**: Data survives `docker-compose down`; only destroyed with `docker-compose down -v`.
+
+---
+
+## Final Boot Procedure & Integration Sanity Check
+
+### Tasks Completed
+*   Created a unified `start.sh` bash script in the root directory to clean port conflicts on ports `3000` and `5173` using `lsof` / `fuser`, startup all apps in the background, poll `/api/v1/health` for startup success, and automatically trigger browser opening to the frontend.
+*   Fixed a critical `TypeError` in `RedisService.disconnect()` by pinning local references to connection instances, preventing concurrent null values from causing crashes on engine or backend exit.
+*   Fixed a browser CORS block by implementing a dynamic origin reflector inside `apps/backend/src/app.ts`'s CORS middleware configuration (reflects origin when requested with credentials, supporting standard dev origins as well as credentials headers).
+*   Corrected an infinite loading screen on `WalletPage.tsx` when the user is not authenticated; it now cleanly redirects or prompts authentication and renders a clean error block with a "Retry Connection" button on Axios failures.
+*   Added connection error block with a "Retry Connection" button inside the `OpenOrders` component to gracefully handle and surface API connection blocks.
+
+### Files Created/Updated
+*   `start.sh`
+*   `packages/common/src/redis.ts`
+*   `apps/backend/src/app.ts`
+*   `apps/frontend/src/pages/WalletPage.tsx`
+*   `apps/frontend/src/components/OpenOrders.tsx`
+*   `docs/engineering_notes.md`
+

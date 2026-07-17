@@ -52,26 +52,34 @@ class RedisService {
   }
 
   public async disconnect(): Promise<void> {
-    if (this.client) {
+    const c = this.client;
+    if (c) {
       try {
-        await this.client.quit();
+        this.client = null;
+        await c.quit();
         logger.info('Redis client disconnected cleanly');
       } catch (err) {
         logger.error(err, 'Error during Redis disconnect');
-        this.client.disconnect();
-      } finally {
-        this.client = null;
+        try {
+          c.disconnect();
+        } catch (e) {
+          // Ignore secondary failures
+        }
       }
     }
-    if (this.subClient) {
+    const sc = this.subClient;
+    if (sc) {
       try {
-        await this.subClient.quit();
+        this.subClient = null;
+        await sc.quit();
         logger.info('Redis Sub client disconnected cleanly');
       } catch (err) {
         logger.error(err, 'Error during Redis Sub disconnect');
-        this.subClient.disconnect();
-      } finally {
-        this.subClient = null;
+        try {
+          sc.disconnect();
+        } catch (e) {
+          // Ignore secondary failures
+        }
       }
     }
   }

@@ -20,20 +20,22 @@ export const OpenOrders: React.FC = () => {
   const { isLoggedIn } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
 
   const fetchOrders = useCallback(async () => {
     if (!isLoggedIn) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await api.get<OrdersResponse>('/orders');
       if (res.data.success) {
-        // Only retain OPEN orders
         setOrders(res.data.data.filter((o) => o.status === 'OPEN'));
       }
     } catch (err) {
       const axiosErr = err as AxiosError<BackendError>;
       const msg = axiosErr.response?.data?.error?.message ?? 'Failed to fetch orders.';
+      setError(msg);
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -95,6 +97,17 @@ export const OpenOrders: React.FC = () => {
       {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-5 h-5 text-brand-green animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-8 space-y-3 text-center">
+          <span className="text-xs text-brand-red font-semibold">{error}</span>
+          <button
+            onClick={fetchOrders}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-brand-red/10 text-brand-red hover:bg-brand-red/20 transition-colors font-bold text-[10px] cursor-pointer"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Retry Connection</span>
+          </button>
         </div>
       ) : orders.length === 0 ? (
         <div className="text-center py-8 text-xs text-dark-text-secondary">

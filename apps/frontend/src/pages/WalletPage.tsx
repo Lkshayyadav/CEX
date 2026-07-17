@@ -126,6 +126,24 @@ export const WalletPage: React.FC = () => {
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4 text-center">
+        <AlertCircle className="w-12 h-12 text-brand-red opacity-60" />
+        <h2 className="text-xl font-bold text-white">Authentication Required</h2>
+        <p className="text-dark-text-secondary text-xs max-w-sm">
+          Please sign in to view your account balances and access the simulated deposit portal.
+        </p>
+        <a
+          href="/login"
+          className="inline-block bg-brand-green text-dark-bg hover:opacity-90 font-bold px-6 py-2.5 rounded-xl text-xs transition-all"
+        >
+          Sign In to Wallet
+        </a>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center flex-col space-y-4">
@@ -172,9 +190,22 @@ export const WalletPage: React.FC = () => {
       </section>
 
       {error && (
-        <div className="flex items-center space-x-2 p-3.5 bg-brand-red/10 border border-brand-red/20 rounded-xl text-xs text-brand-red">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{error}</span>
+        <div className="flex items-center justify-between p-3.5 bg-brand-red/10 border border-brand-red/20 rounded-xl text-xs text-brand-red">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              fetchBalances();
+            }}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-brand-red/20 hover:bg-brand-red/35 transition-colors font-bold cursor-pointer text-[10px]"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Retry Connection</span>
+          </button>
         </div>
       )}
 

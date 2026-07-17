@@ -15,7 +15,14 @@ app.use(helmet());
 // 2. CORS configuration with allowed origins from configuration
 app.use(
   cors({
-    origin: config.corsAllowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const allowed = config.corsAllowedOrigins;
+      if (allowed.includes('*') || allowed.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
