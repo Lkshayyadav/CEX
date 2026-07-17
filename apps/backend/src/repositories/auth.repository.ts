@@ -25,6 +25,15 @@ export const authRepository = {
   },
 
   /**
+   * Find a user by their ID.
+   */
+  async findById(id: string): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: { id },
+    });
+  },
+
+  /**
    * Create a new user record.
    */
   async createUser(data: { email: string; username: string; passwordHash: string }): Promise<User> {

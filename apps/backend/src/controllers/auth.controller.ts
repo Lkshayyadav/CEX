@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services';
-import { sendSuccessResponse } from '../utils';
+import { sendSuccessResponse, AppError } from '../utils';
 import { HTTP_STATUS, AUTH_MESSAGES } from '../constants';
 
 /**
@@ -27,6 +27,21 @@ export const authController = {
     try {
       const data = await authService.login(req.body);
       sendSuccessResponse(res, data, AUTH_MESSAGES.LOGIN_SUCCESS, HTTP_STATUS.OK);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Fetch current authenticated user.
+   */
+  async getCurrentUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError('Access unauthorized. Please login first.', HTTP_STATUS.UNAUTHORIZED);
+      }
+      const user = await authService.getCurrentUser(req.user.id);
+      sendSuccessResponse(res, user, 'Profile fetched successfully', HTTP_STATUS.OK);
     } catch (error) {
       next(error);
     }

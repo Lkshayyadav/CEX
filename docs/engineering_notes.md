@@ -449,5 +449,51 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Leaking sensitive fields (like `passwordHash`) in API response objects, which increases risk in logging pipelines or client-side caching.
 *   Using simple, fast hash algorithms (like MD5 or SHA256) for passwords. These algorithms are designed for speed, allowing attackers to check billions of hashes per second. slow hashing functions (like Bcrypt or Argon2) must be used instead.
 
+---
+
+## Phase 3.1: JWT Authentication Middleware & Protected Routes
+
+### Tasks Completed
+*   Implemented `requireAuth` JWT validation middleware in `auth.middleware.ts`.
+*   Extended Express `Request` type using declaration merging inside `types/express.d.ts` to allow access to a strongly-typed `req.user`.
+*   Added `findById` lookup query in `auth.repository.ts`.
+*   Added `getCurrentUser` profile getter in `auth.service.ts` excluding sensitive credentials (`passwordHash`).
+*   Created `getCurrentUser` controller action in `auth.controller.ts` returning standard responses.
+*   Protected `GET /api/v1/auth/me` with the `requireAuth` middleware.
+
+### What We Built
+*   `apps/backend/src/types/express.d.ts`: Adds type safety to Express request objects for tracking signed-in users.
+*   `apps/backend/src/middleware/auth.middleware.ts`: Validates Bearer authorization headers and prevents cryptographic details from escaping to API clients.
+
+### Why We Built It
+*   **Declaration Merging**: Extending the namespace of external libraries (like Express) is a TypeScript best practice. It prevents developer hacks (such as casting to `any` or using `// @ts-ignore`) and enforces autocomplete and type checks during request processing.
+*   **Token Obfuscation**: Intercepting and mapping JWT library errors to a generic "Access unauthorized" response prevents attackers from diagnosing structural details of our token system (e.g. checking signature schemes or algorithm details).
+
+### Files Created/Updated
+*   `apps/backend/src/types/express.d.ts`
+*   `apps/backend/src/middleware/auth.middleware.ts`
+*   `apps/backend/src/repositories/auth.repository.ts`
+*   `apps/backend/src/services/auth.service.ts`
+*   `apps/backend/src/controllers/auth.controller.ts`
+*   `apps/backend/src/routes/auth.routes.ts`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend run build`
+
+### Important Concepts
+*   **Declaration Merging**: Type definitions with the exact same name and namespace merge automatically under TypeScript compilation.
+*   **Bearer Scheme**: The HTTP standard way of sending credentials using the `Authorization: Bearer <token>` header format.
+
+### Interview Questions
+1.  *What is TypeScript Declaration Merging and why is it preferred over casting requests to 'any'?*
+    *   **Answer**: Declaration merging compiles additional type properties directly into existing modules (like Express's `Request` interface). Casting to `any` turns off TypeScript's compiler safety checks, leading to typos or refactoring bugs failing silently during development and breaking in production. Merging preserves type-checking and IDE autocomplete.
+2.  *Why is it important to scrub internal JWT errors before sending HTTP error responses?*
+    *   **Answer**: JWT libraries throw verbose errors (e.g., `invalid signature`, `jwt signature is invalid`, `jwt malformed`, or `jwt expired`). Returning these verbatim to the client assists attackers with probe diagnostics, letting them know if a signature is syntactically correct but expired, or if a signature verification routine was executed, which leaks infrastructure context.
+
+### Common Mistakes
+*   Casting `req` to `any` to set custom values in middleware, which silences warnings but destroys type checking in downstream controllers.
+*   Forgetting to verify if the token exists inside the `Authorization` string after splitting the Bearer prefix, which can result in runtime crashes.
+
 
 

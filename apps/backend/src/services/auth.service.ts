@@ -83,4 +83,17 @@ export const authService = {
       accessToken,
     };
   },
+
+  /**
+   * Fetch currently logged-in user's profile details.
+   */
+  async getCurrentUser(userId: string): Promise<Omit<User, 'passwordHash'>> {
+    const user = await authRepository.findById(userId);
+    if (!user) {
+      throw new AppError('User not found.', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const { passwordHash: _, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  },
 };

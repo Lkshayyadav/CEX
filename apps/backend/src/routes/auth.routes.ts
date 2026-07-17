@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authController } from '../controllers';
 import { validateRequest } from '../validators';
 import { registerSchema, loginSchema } from '../validators/auth.validator';
+import { requireAuth } from '../middleware';
 
 const router = Router();
 
@@ -16,5 +17,11 @@ router.post('/register', validateRequest(registerSchema), authController.registe
  * Request payload validated via loginSchema Zod validator.
  */
 router.post('/login', validateRequest(loginSchema), authController.login);
+
+/**
+ * GET /api/v1/auth/me
+ * Protected endpoint returning profile details of current session's logged-in user.
+ */
+router.get('/me', requireAuth, authController.getCurrentUser);
 
 export default router;
