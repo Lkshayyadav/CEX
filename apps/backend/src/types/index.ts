@@ -15,3 +15,4 @@ export interface AuthenticatedRequest extends Request {
 
 export * from './auth';
 export * from './market';
+export * from './balance';

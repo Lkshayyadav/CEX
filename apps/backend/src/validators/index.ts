@@ -70,3 +70,4 @@ export const validateRequestBodyKeys = (requiredKeys: string[]) => {
 
 export * from './auth.validator';
 export * from './market.validator';
+export * from './balance.validator';

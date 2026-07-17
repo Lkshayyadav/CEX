@@ -25,6 +25,15 @@ export const marketRepository = {
   },
 
   /**
+   * Fetch an asset by its symbol (e.g. "BTC").
+   */
+  async getAssetBySymbol(symbol: string) {
+    return prisma.asset.findUnique({
+      where: { symbol },
+    });
+  },
+
+  /**
    * Fetch all active markets including their base and quote asset details.
    */
   async getActiveMarkets() {

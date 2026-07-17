@@ -13,6 +13,9 @@ We are currently in the **foundation phase**. The directory structure, workspace
 *   [x] TypeScript compile environment configured
 *   [x] `apps/backend` Express bootstrap with Helmet, CORS, Compression, and Pino structured logging
 *   [x] Prisma ORM integration ready for PostgreSQL
+*   [x] JWT Authentication & Protected Profile endpoints (`/auth/register`, `/auth/login`, `/auth/me`)
+*   [x] Asset & Market Management APIs (`/assets`, `/markets`)
+*   [x] User Balance Management System & Simulated Ledger Deposits (`/balances`)
 *   [ ] Shared math, database clients, and helpers (`packages/common`)
 *   [ ] Shared interface and type definitions (`packages/types`)
 *   [ ] High-performance Matching Engine (`apps/engine`)
@@ -131,6 +134,8 @@ pnpm build
 *   [x] Configure Prisma with PostgreSQL database layer.
 *   [x] Implement Authentication system (JWT)
 *   [x] Model the DB schema (Users, Assets, Balances, Markets, Orders, Fills, Transactions)
+*   [x] Implement Asset & Market Management APIs
+*   [x] Implement User Balance Ledger and Deposits
 
 ### Phase 2: High-Performance Matching Engine
 *   [ ] Implement a stateful, memory-based limit order book (LOB).

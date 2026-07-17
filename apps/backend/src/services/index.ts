@@ -16,3 +16,4 @@ export const UserService = {
 
 export * from './auth.service';
 export * from './market.service';
+export * from './balance.service';

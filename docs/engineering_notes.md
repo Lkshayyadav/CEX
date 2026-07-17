@@ -547,5 +547,58 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Using double-precision float values for asset decimals and trade quantities, resulting in rounding errors.
 *   Directly mapping path parameters to database queries without regex validation, which opens up SQL/NoSQL injections or unnecessary DB queries.
 
+---
+
+## Phase 3.3: User Balance Management (Internal Exchange Ledger)
+
+### Tasks Completed
+*   Created type definitions for user balances and deposit inputs in `types/balance.ts`.
+*   Implemented `balanceRepository` handling user balance retrieval, single asset lookup, record creation, and free balance increments.
+*   Implemented `balanceService` to manage user balances list, asset existence verification, and simulated deposit logic wrapped inside a Prisma transaction block.
+*   Implemented `balanceController` with protected endpoints to retrieve user balances, a single asset's balance, and deposit simulated funds.
+*   Created Zod schemas for validating path parameters and request body values inside `validators/balance.validator.ts`.
+*   Mounted balance sub-routes under the `/balances` path namespace in `routes/index.ts`.
+*   Verified that the TypeScript project builds successfully.
+
+### What We Built
+*   `apps/backend/src/types/balance.ts`: Data Transfer Objects representing balance snapshots and deposit inputs.
+*   `apps/backend/src/repositories/balance.repository.ts`: Abstracts raw Prisma queries, supporting transaction-aware updates and database-level numeric increments.
+*   `apps/backend/src/services/balance.service.ts`: Implements business validation rules (such as asset check logic) and enforces transaction integrity during deposits.
+*   `apps/backend/src/controllers/balance.controller.ts`: Authenticates req.user presence and bridges the API gateway to the services layer.
+*   `apps/backend/src/validators/balance.validator.ts`: Houses validation rules for body inputs and route params.
+
+### Why We Built It
+*   **Prisma Transaction Isolation**: Simultaneous deposit actions or ledger updates can lead to race conditions. Wrapping balance queries, creates, and writes in a single `$transaction` ensures updates execute sequentially and atomically.
+*   **Decoupled Database Operation**: Service layers should remain agnostic to exact database execution. By passing optional transaction context (`tx`) to repository functions, we preserve separation of concerns while keeping operations atomic.
+
+### Files Created/Updated
+*   `apps/backend/src/types/balance.ts`
+*   `apps/backend/src/repositories/balance.repository.ts`
+*   `apps/backend/src/services/balance.service.ts`
+*   `apps/backend/src/controllers/balance.controller.ts`
+*   `apps/backend/src/routes/balance.routes.ts`
+*   `apps/backend/src/validators/balance.validator.ts`
+*   `apps/backend/src/validators/index.ts`
+*   `apps/backend/src/routes/index.ts`
+*   `docs/engineering_notes.md`
+*   `README.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend run build`
+
+### Important Concepts
+*   **Database Increments**: Never perform mathematical additions in-memory inside the application server (e.g. `const newBal = oldBal + deposit; await db.update(newBal)`). This leads to lost updates under high concurrency. Database-level atomic increments (such as `free: { increment: amount }`) lock and update the record on the server side.
+*   **Atomic Transactions**: A simulated deposit requires a read followed by a write (check if exists -> create -> update). An atomic transaction ensures that if two identical deposits are requested concurrently, they don't produce duplicate records or incorrect ledger sums.
+
+### Interview Questions
+1.  *Why are in-memory calculations of user balances followed by updates harmful in a centralized exchange, and how do database increments solve this?*
+    *   **Answer**: In a concurrent environment, two requests reading a user's balance at the exact same millisecond will get the same initial value (e.g., $100). If both add $50 in-memory, both will try to write $150 to the database. The final balance becomes $150 instead of $200 (a lost update). Database-level increments lock the database row and perform the addition inside the database engine, forcing concurrent updates to execute sequentially and correctly.
+2.  *How does passing an optional transaction client (`tx`) to repository functions preserve Clean Architecture boundaries during database transactions?*
+    *   **Answer**: Clean Architecture dictates that services contain business rules (including transaction definitions), while repositories handle database operations. If we created transactions inside the repository, we couldn't easily chain updates across different repositories atomically. By defining the transaction in the service and passing the `tx` client as an optional argument to repository functions, we allow repositories to remain independent of transaction boundaries while still participating in them.
+
+### Common Mistakes
+*   Performing balance math inside Node.js code and overwriting the database value, which causes massive race conditions under load.
+*   Updating a user's balance without validating that the asset symbol exists in the exchange's asset database.
+
 
 
