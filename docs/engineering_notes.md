@@ -376,5 +376,78 @@ This is a personal engineering notebook tracking the design decisions, architect
 *   Registering the global error handler middleware *before* the router or other middlewares, causing errors in route handlers to skip the error handler.
 *   Not cleaning up native child processes or database connections on SIGINT/SIGTERM, causing containers to hang in a zombie state for 10-30 seconds until the system forcefully kills them.
 
+---
+
+## Phase 3.0: Authentication Module (Register & Login)
+
+### Tasks Completed
+*   Installed bcrypt, jsonwebtoken, and their TypeScript type definitions.
+*   Built authentication module following strict Clean Architecture boundaries:
+    `Route` → `Controller` → `Service` → `Repository` → `Prisma`
+*   Created Zod validation schemas for registration and login requests, using a custom express validation middleware.
+*   Implemented `POST /api/v1/auth/register` with unique checks for username and email, bcrypt password hashing, and database storage.
+*   Implemented `POST /api/v1/auth/login` supporting dual-lookup (by email or username), bcrypt password comparison, and JWT access token signing (24h validity).
+*   Created password, JWT, and standardized API response utilities, and structured constants for message and status definitions.
+*   Created a placeholder `requireAuth` middleware.
+
+### What We Built
+*   `apps/backend/src/constants/http-status.ts` & `apps/backend/src/constants/messages.ts`: Enforces centralized status and text values.
+*   `apps/backend/src/utils/password.ts` & `apps/backend/src/utils/jwt.ts`: Cryptographic wrappers for password handling and token administration.
+*   `apps/backend/src/utils/response.ts`: Structured JSON envelopes for unified client responses, including an `AppError` class for propagation.
+*   `apps/backend/src/validators/auth.validator.ts`: Zod schema validation rules for incoming JSON bodies.
+*   `apps/backend/src/repositories/auth.repository.ts`: Direct queries to PostgreSQL via Prisma Client.
+*   `apps/backend/src/services/auth.service.ts`: Implements business validation rules (email/username uniqueness, credentials checking).
+*   `apps/backend/src/controllers/auth.controller.ts`: Unwraps Express requests, calls service, and returns standardized envelopes.
+*   `apps/backend/src/middleware/auth.middleware.ts`: Placeholder middleware for JWT checking.
+*   `apps/backend/src/routes/auth.routes.ts`: Binds paths to validate middlewares and controllers.
+
+### Why We Built It
+*   **Segregation of Concerns**: Separating repositories (database syntax) from services (business rules) allows us to change database ORMs (e.g. from Prisma to raw SQL or another database driver) without modifying any business logic inside the service layer.
+*   **Standardized API Contracts**: Clients (like web apps, mobile apps, or third-party integrations) rely on predictable API formats. Standardizing response shapes to always follow `{ success: true, message: string, data: T }` or `{ success: false, error: { message: string, details: any } }` simplifies client-side parsing.
+*   **Password Safety**: We never store plaintext passwords. Using `bcrypt` with a work factor of 12 ensures that passwords are computationally expensive to brute-force even in the event of a database compromise.
+
+### Files Created/Updated
+*   `apps/backend/src/constants/http-status.ts`
+*   `apps/backend/src/constants/messages.ts`
+*   `apps/backend/src/constants/index.ts`
+*   `apps/backend/src/types/auth.ts`
+*   `apps/backend/src/types/index.ts`
+*   `apps/backend/src/utils/password.ts`
+*   `apps/backend/src/utils/jwt.ts`
+*   `apps/backend/src/utils/response.ts`
+*   `apps/backend/src/utils/index.ts`
+*   `apps/backend/src/validators/auth.validator.ts`
+*   `apps/backend/src/validators/index.ts`
+*   `apps/backend/src/repositories/auth.repository.ts`
+*   `apps/backend/src/repositories/index.ts`
+*   `apps/backend/src/services/auth.service.ts`
+*   `apps/backend/src/services/index.ts`
+*   `apps/backend/src/controllers/auth.controller.ts`
+*   `apps/backend/src/controllers/index.ts`
+*   `apps/backend/src/middleware/auth.middleware.ts`
+*   `apps/backend/src/middleware/index.ts`
+*   `apps/backend/src/routes/auth.routes.ts`
+*   `apps/backend/src/routes/index.ts`
+*   `docs/engineering_notes.md`
+
+### Commands Used
+*   `npx pnpm --filter @cex/backend add bcrypt jsonwebtoken`
+*   `npx pnpm --filter @cex/backend add -D @types/bcrypt @types/jsonwebtoken`
+*   `npx pnpm --filter @cex/backend run build`
+
+### Important Concepts
+*   **JWT Stateless Authentication**: A signed token allows servers to identify and trust a user request without performing a database lookup on every API access, saving database roundtrips.
+*   **Clean Architecture Segregation**: Ensures that controllers only know about HTTP protocols, services only know about business rules, and repositories only know about database persistence details.
+
+### Interview Questions
+1.  *Why should controllers never import or query the Prisma Client directly in Clean Architecture?*
+    *   **Answer**: Directly coupling controllers to the ORM bypasses the service (business rules) and repository (data access abstraction) layers. If you want to change persistence technologies (e.g. migrate to a partition-scaled database), or inject custom auditing or event dispatching routines during writes, you would have to refactor every controller rather than updating a single repository or service method.
+2.  *What is a rainbow table attack, and how does salting passwords prevent it?*
+    *   **Answer**: Rainbow tables are precomputed tables of cryptographic hashes of common passwords. If a database is compromised, attackers can instantly reverse hashes back to plaintext. Salting appends a unique, random string to each password before hashing, forcing attackers to compute hashes individually for each user, rendering precomputed tables useless.
+
+### Common Mistakes
+*   Leaking sensitive fields (like `passwordHash`) in API response objects, which increases risk in logging pipelines or client-side caching.
+*   Using simple, fast hash algorithms (like MD5 or SHA256) for passwords. These algorithms are designed for speed, allowing attackers to check billions of hashes per second. slow hashing functions (like Bcrypt or Argon2) must be used instead.
+
 
 

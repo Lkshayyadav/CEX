@@ -129,8 +129,8 @@ pnpm build
 *   [x] Set up workspace and monorepo configurations.
 *   [x] Set up basic Express HTTP backend.
 *   [x] Configure Prisma with PostgreSQL database layer.
-*   [ ] Implement Authentication system (JWT + session storage).
-*   [ ] Model the DB schema (Users, Accounts, Balances, Orders, Trades).
+*   [x] Implement Authentication system (JWT)
+*   [x] Model the DB schema (Users, Assets, Balances, Markets, Orders, Fills, Transactions)
 
 ### Phase 2: High-Performance Matching Engine
 *   [ ] Implement a stateful, memory-based limit order book (LOB).

@@ -1,10 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodSchema, ZodError } from 'zod';
 import { HTTP_STATUS } from '../constants';
+import { sendErrorResponse } from '../utils';
 
 /**
- * Basic interface validator helper (placeholder design).
- * In a real application, you might use a library like Zod:
- * `export const validate = (schema: AnyZodObject) => ...`
+ * Zod validation middleware for Express requests
+ */
+export const validateRequest = (schema: ZodSchema) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      req.body = await schema.parseAsync(req.body);
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const details = error.issues.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        }));
+        sendErrorResponse(res, 'Validation failed', HTTP_STATUS.BAD_REQUEST, details);
+        return;
+      }
+      next(error);
+    }
+  };
+};
+
+/**
+ * Basic interface validator helper (legacy placeholder design).
  */
 export const validateRequestBodyKeys = (requiredKeys: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -23,3 +45,5 @@ export const validateRequestBodyKeys = (requiredKeys: string[]) => {
     next();
   };
 };
+
+export * from './auth.validator';

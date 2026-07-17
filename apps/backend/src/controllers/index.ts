@@ -21,3 +21,5 @@ export const statusCheckController = async (req: Request, res: Response, next: N
     next(error);
   }
 };
+
+export * from './auth.controller';

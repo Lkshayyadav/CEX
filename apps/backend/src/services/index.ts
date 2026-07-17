@@ -13,3 +13,5 @@ export const UserService = {
     return user;
   },
 };
+
+export * from './auth.service';

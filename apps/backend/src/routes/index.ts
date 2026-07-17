@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import authRoutes from './auth.routes';
 
 const router = Router();
 
@@ -12,5 +13,8 @@ router.get('/health', (req, res) => {
     message: 'CEX Backend is running',
   });
 });
+
+// Mount authentication sub-routes
+router.use('/auth', authRoutes);
 
 export default router;

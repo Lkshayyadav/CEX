@@ -16,3 +16,5 @@ export const UserRepository = {
     return null;
   },
 };
+
+export * from './auth.repository';
