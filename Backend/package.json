@@ -2,6 +2,7 @@
   "name": "@cex/backend-root",
   "private": true,
   "scripts": {
+    "prebuild": "pnpm --filter @cex/backend prisma:generate",
     "dev": "pnpm --filter @cex/backend --filter @cex/engine dev",
     "build": "pnpm --filter @cex/backend --filter @cex/engine build",
     "start": "pnpm --filter @cex/backend --filter @cex/engine start"
