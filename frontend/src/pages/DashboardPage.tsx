@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import { useWebSocketStream, useSubscription, useWebSocket } from '../context/WebSocketContext';
+import { useWebSocketStream, useWebSocket } from '../context/WebSocketContext';
 import { OrderEntry } from '../components/OrderEntry';
 import { CandlestickChart } from '../components/CandlestickChart';
 import type { CandlestickChartHandle } from '../components/CandlestickChart';

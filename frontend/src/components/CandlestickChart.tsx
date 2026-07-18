@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import {
   createChart,
   type IChartApi,
@@ -22,7 +22,7 @@ interface CandlestickChartProps {
 }
 
 export const CandlestickChart = forwardRef<CandlestickChartHandle, CandlestickChartProps>(
-  ({ basePrice, symbol, interval = '1m' }, ref) => {
+  ({ basePrice: _basePrice, symbol, interval = '1m' }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);

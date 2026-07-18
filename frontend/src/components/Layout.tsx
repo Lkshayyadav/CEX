@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Wallet, TrendingUp, User, LogOut, LogIn } from 'lucide-react';
+import { Wallet, TrendingUp, User, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 

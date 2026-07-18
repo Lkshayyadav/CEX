@@ -6,6 +6,11 @@
   "scripts": {
     "prebuild": "pnpm --filter @cex/backend prisma:generate",
     "build": "pnpm -r run build",
+    "build:backend": "pnpm --filter @cex/backend build",
+    "start:backend": "pnpm --filter @cex/backend start",
+    "build:engine": "pnpm --filter @cex/engine build",
+    "start:engine": "pnpm --filter @cex/engine start",
+    "build:frontend": "pnpm --filter @cex/frontend build",
     "predev": "pnpm --filter @cex/backend prisma:generate",
     "dev": "pnpm -r run dev",
     "test": "pnpm -r run test",
