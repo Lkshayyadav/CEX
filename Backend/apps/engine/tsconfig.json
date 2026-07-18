@@ -1,8 +1,23 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"],
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "../../",
+    "paths": {
+      "@cex/types": ["../../packages/types/src/index.ts"],
+      "@cex/types/*": ["../../packages/types/src/*"],
+      "@cex/common": ["../../packages/common/src/index.ts"],
+      "@cex/common/*": ["../../packages/common/src/*"]
+    }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "../../packages/types/src/**/*", "../../packages/common/src/**/*"],
+  "exclude": ["src/test_phase2.ts", "src/test_phase3.ts", "src/test_phase4.ts"]
 }
+

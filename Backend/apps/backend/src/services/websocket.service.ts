@@ -95,7 +95,7 @@ class WebSocketManager {
         logger.error(err, 'Failed to subscribe to Redis pattern market:*:*');
       });
 
-    redisSub.on('pmessage', (_pattern, channel, message) => {
+    redisSub.on('pmessage', (_pattern: string, channel: string, message: string) => {
       const parts = channel.split(':');
       if (parts.length === 3) {
         const symbol = parts[1]; // e.g. BTC_USDT
