@@ -4,7 +4,7 @@
   "scripts": {
     "prebuild": "pnpm --filter @cex/backend prisma:generate",
     "dev": "pnpm --filter @cex/backend --filter @cex/engine dev",
-    "build": "pnpm --filter @cex/backend --filter @cex/engine build",
+    "build": "pnpm --filter @cex/types build && pnpm --filter @cex/common build && pnpm --filter @cex/backend --filter @cex/engine build",
     "start": "concurrently \"pnpm --filter @cex/backend start\" \"pnpm --filter @cex/engine start\""
   },
   "devDependencies": {

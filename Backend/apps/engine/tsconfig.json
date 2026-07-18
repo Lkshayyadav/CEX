@@ -9,15 +9,8 @@
     "skipLibCheck": true,
     "types": ["node"],
     "outDir": "./dist",
-    "rootDir": "../../",
-    "paths": {
-      "@cex/types": ["../../packages/types/src/index.ts"],
-      "@cex/types/*": ["../../packages/types/src/*"],
-      "@cex/common": ["../../packages/common/src/index.ts"],
-      "@cex/common/*": ["../../packages/common/src/*"]
-    }
+    "rootDir": "./src"
   },
-  "include": ["src/**/*", "../../packages/types/src/**/*", "../../packages/common/src/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["src/test_phase2.ts", "src/test_phase3.ts", "src/test_phase4.ts"]
 }
-
