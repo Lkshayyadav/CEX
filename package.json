@@ -4,7 +4,9 @@
   "private": true,
   "description": "Production-grade Centralized Exchange (CEX) Monorepo",
   "scripts": {
+    "prebuild": "pnpm --filter @cex/backend prisma:generate",
     "build": "pnpm -r run build",
+    "predev": "pnpm --filter @cex/backend prisma:generate",
     "dev": "pnpm -r run dev",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
