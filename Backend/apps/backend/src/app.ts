@@ -23,7 +23,8 @@ app.use(
       if (allowed.includes('*') || allowed.includes(origin)) {
         return callback(null, origin);
       }
-      return callback(new Error(`CORS: origin ${origin} not allowed`));
+      // Return false (not an Error) so cors sends 403 instead of crashing to 500
+      return callback(null, false);
     },
     credentials: true,
   })
