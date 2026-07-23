@@ -1,6 +1,9 @@
 {
   "buildCommand": "pnpm --filter @cex/types build && pnpm --filter @cex/common build && pnpm --filter @cex/frontend build",
-  "outputDirectory": "frontend/dist",
+  "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
