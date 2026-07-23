@@ -10,7 +10,7 @@
     "start:backend": "pnpm --filter @cex/backend start",
     "build:engine": "pnpm --filter @cex/engine build",
     "start:engine": "pnpm --filter @cex/engine start",
-    "build:frontend": "pnpm --filter @cex/frontend build",
+    "build:frontend": "pnpm --filter @cex/types build && pnpm --filter @cex/common build && pnpm --filter @cex/frontend build",
     "predev": "pnpm --filter @cex/backend prisma:generate",
     "dev": "pnpm -r run dev",
     "test": "pnpm -r run test",
