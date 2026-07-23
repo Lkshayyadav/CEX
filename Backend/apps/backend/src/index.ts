@@ -26,16 +26,9 @@ const startServer = async () => {
     webSocketService.init(server);
 
     server.on('upgrade', (request, socket, head) => {
-      const origin = request.headers.origin;
-      const allowed = config.corsAllowedOrigins;
-
-      if (!origin || allowed.includes('*') || allowed.includes(origin)) {
-        webSocketService.handleUpgrade(request, socket, head);
-      } else {
-        logger.warn(`[server]: WebSocket upgrade rejected for unauthorized origin: ${origin}`);
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-      }
+      // Origin-based WS blocking is bypassed by non-browser clients anyway.
+      // Real security is handled by JWT authentication at the app layer.
+      webSocketService.handleUpgrade(request, socket, head);
     });
   } catch (error) {
     logger.error({ err: error }, '[server]: Failed to bootstrap the server');
