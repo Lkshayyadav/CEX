@@ -16,12 +16,14 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Non-browser requests (curl, Postman) have no origin — allow them
       if (!origin) return callback(null, true);
       const allowed = config.corsAllowedOrigins;
+      // Wildcard can't be used with credentials:true, so reflect the origin
       if (allowed.includes('*') || allowed.includes(origin)) {
-        return callback(null, true);
+        return callback(null, origin);
       }
-      return callback(null, false);
+      return callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
   })
